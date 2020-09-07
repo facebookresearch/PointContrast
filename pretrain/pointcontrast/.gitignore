@@ -1,0 +1,18 @@
+# Temp files
+__pycache__
+*.swp
+*.swo
+*.orig
+.idea
+.nfs*
+outputs/
+outputs_dir/
+*.pyc
+data/
+debug/
+launch_scripts
+*.npy
+*.pcd
+.*/
+downstream/
+.vscode/settings.json
