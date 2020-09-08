@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export LOG_DIR=./outputs
+export LOG_DIR=outputs
 
 python3 ddp_train.py \
 	--model=Res16UNet34C \
