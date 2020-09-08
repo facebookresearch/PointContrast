@@ -233,7 +233,7 @@ class HardestContrastiveLossTrainer(ContrastiveLossTrainer):
 
       if curr_iter % self.lr_update_freq == 0 or curr_iter == 1:
         lr = self.scheduler.get_lr()
-        logging.info(f"everything else: Epoch: {epoch}, LR: {lr}")
+        # logging.info(f"everything else: Epoch: {epoch}, LR: {lr}")
         if self.is_master:
           logging.info(f"master: Epoch: {epoch}, LR: {lr}")
           self._save_checkpoint(epoch, 'checkpoint_'+str(curr_iter))
