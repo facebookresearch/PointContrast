@@ -36,20 +36,28 @@ from torch.serialization import default_restore_location
 
 torch.autograd.set_detect_anomaly(True)
 
+def load_state(model, weights, lenient_weight_loading=False):
+  if du.get_world_size() > 1:
+      _model = model.module
+  else:
+      _model = model  
+
+  if lenient_weight_loading:
+    model_state = _model.state_dict()
+    filtered_weights = {
+        k: v for k, v in weights.items() if k in model_state and v.size() == model_state[k].size()
+    }
+    logging.info("Load weights:" + ', '.join(filtered_weights.keys()))
+    weights = model_state
+    weights.update(filtered_weights)
+
+  _model.load_state_dict(weights, strict=True)
+
+
 def shuffle_loader(data_loader, cur_epoch):
   assert isinstance(data_loader.sampler, (RandomSampler, InfSampler, DistributedSampler, DistributedInfSampler))
   if isinstance(data_loader.sampler, DistributedSampler):
     data_loader.sampler.set_epoch(cur_epoch)
-
-# TODO(s9xie): move to utils
-def load_state_with_same_shape(model, weights):
-  model_state = model.state_dict()
-  filtered_weights = {
-      k: v for k, v in weights.items() if k in model_state and v.size() == model_state[k].size()
-  }
-  logging.info("Loading weights:" + ', '.join(filtered_weights.keys()))
-  return filtered_weights
-
 
 class ContrastiveLossTrainer:
   def __init__(
@@ -77,14 +85,9 @@ class ContrastiveLossTrainer:
                 output_device=self.cur_device,
                 broadcast_buffers=False,
         )
-    if config.misc.weights:
-      checkpoint = torch.load(config.misc.weights, map_location=lambda s, l: default_restore_location(s, 'cpu'))
-      model.load_state_dict(checkpoint['state_dict'])
 
     self.config = config
     self.model = model
-    self.max_epoch = config.opt.max_epoch
-    self.save_freq = config.trainer.save_freq_epoch
 
     self.optimizer = getattr(optim, config.opt.optimizer)(
         model.parameters(),
@@ -93,56 +96,62 @@ class ContrastiveLossTrainer:
         weight_decay=config.opt.weight_decay)
 
     self.scheduler = optim.lr_scheduler.ExponentialLR(self.optimizer, config.opt.exp_gamma)
-
-    self.start_epoch = 1
-    self.checkpoint_dir = config.logging.out_dir
-
-    if self.is_master:
-        ensure_dir(self.checkpoint_dir)
-        OmegaConf.save(config, os.path.join(self.checkpoint_dir, 'config.yaml'))
-
+    self.curr_iter = 0
     self.iter_size = config.opt.iter_size
     self.batch_size = data_loader.batch_size
     self.data_loader = data_loader
 
     self.log_step = int(np.sqrt(self.batch_size))
-    self.writer = SummaryWriter(logdir=config.logging.out_dir)
 
     self.neg_thresh = config.trainer.neg_thresh
     self.pos_thresh = config.trainer.pos_thresh
     self.neg_weight = config.trainer.neg_weight
 
-    if config.misc.resume is not None:
-      if osp.isfile(config.misc.resume):
-        logging.info("=> loading checkpoint '{}'".format(config.misc.resume))
-        state = torch.load(config.misc.resume, map_location=lambda s, l: default_restore_location(s, 'cpu'))
-        self.start_epoch = state['epoch']
+    #---------------- optional: resume checkpoint by given path ----------------------
+    if config.misc.weight:
+        logging.info('===> Loading weights: ' + config.misc.weight)
+        state = torch.load(config.misc.weight, map_location=lambda s, l: default_restore_location(s, 'cpu'))
+        load_state(model, state['state_dict'], config.misc.lenient_weight_loading)
+        logging.info('===> Loaded weights: ' + config.misc.weight)
 
-        if config.misc.lenient_weight_loading:
-          matched_weights = load_state_with_same_shape(model, state['state_dict'])
-          model_dict = model.state_dict()
-          model_dict.update(matched_weights)
-          model.load_state_dict(model_dict)
-        else:
-          model.load_state_dict(state['state_dict'])
-          self.scheduler.load_state_dict(state['scheduler'])
-          self.optimizer.load_state_dict(state['optimizer'])
-      else:
-        raise ValueError(f"=> no checkpoint found at '{config.misc.resume}'")
+    #---------------- default: resume checkpoint in current folder ----------------------
+    checkpoint_fn = 'weights/weights.pth'
+    if osp.isfile(checkpoint_fn):
+      logging.info("=> loading checkpoint '{}'".format(checkpoint_fn))
+      state = torch.load(checkpoint_fn, map_location=lambda s, l: default_restore_location(s, 'cpu'))
+      self.curr_iter = state['curr_iter']
+      load_state(model, state['state_dict'])
+      self.optimizer.load_state_dict(state['optimizer'])
+      self.scheduler.load_state_dict(state['scheduler'])
+      logging.info("=> loaded checkpoint '{}' (curr_iter {})".format(checkpoint_fn, state['curr_iter']))
+    else:
+      logging.info("=> no checkpoint found at '{}'".format(checkpoint_fn))
 
-  def _save_checkpoint(self, epoch, filename='checkpoint'):
+    if self.is_master:
+        self.writer = SummaryWriter(logdir='logs')
+        ensure_dir('weights')
+        OmegaConf.save(config, 'config.yaml')
+
+  def _save_checkpoint(self, curr_iter, filename='checkpoint'):
     if not self.is_master:
         return
+    _model = self.model.module if du.get_world_size() > 1 else self.model
     state = {
-        'epoch': epoch,
-        'state_dict': self.model.state_dict(),
+        'curr_iter': curr_iter,
+        'state_dict': _model.state_dict(),
         'optimizer': self.optimizer.state_dict(),
         'scheduler': self.scheduler.state_dict(),
         'config': self.config
     }
-    filename = os.path.join(self.checkpoint_dir, f'{filename}.pth')
-    logging.info("Saving checkpoint: {} ...".format(filename))
-    torch.save(state, filename)
+    import ipdb; ipdb.set_trace()
+    filepath = os.path.join('weights', f'{filename}.pth')
+    logging.info("Saving checkpoint: {} ...".format(filepath))
+    torch.save(state, filepath)
+    # Delete symlink if it exists
+    if os.path.exists('weights/weights.pth'):
+      os.remove('weights/weights.pth')
+    # Create symlink
+    os.system('ln -s {}.pth weights/weights.pth'.format(filename))
 
 class HardestContrastiveLossTrainer(ContrastiveLossTrainer):
 
@@ -213,11 +222,10 @@ class HardestContrastiveLossTrainer(ContrastiveLossTrainer):
 
     assert self.config.trainer.infinite_sampler, "Only support InfSampler"
     
-    curr_iter, epoch = 0, 0
+    curr_iter = self.curr_iter
     data_loader = self.data_loader
     data_loader_iter = self.data_loader.__iter__()
     iter_size = self.iter_size
-    start_iter = 0
     data_meter, data_timer, total_timer = AverageMeter(), Timer(), Timer()
     
     total_loss = 0
@@ -227,34 +235,32 @@ class HardestContrastiveLossTrainer(ContrastiveLossTrainer):
 
       curr_iter += 1
       epoch = curr_iter / len(self.data_loader)
-
-      if curr_iter % self.lr_update_freq == 0 or curr_iter == 1:
-        lr = self.scheduler.get_lr()
-        if self.is_master:
-          logging.info(f" Epoch: {epoch}, LR: {lr}")
-          self._save_checkpoint(epoch, 'checkpoint_'+str(curr_iter))
-          self.scheduler.step()
-
-      batch_loss, batch_pos_loss, batch_neg_loss = self._train_iter(curr_iter, data_loader_iter, start_iter, iter_size, [data_meter, data_timer, total_timer])
-
+      batch_loss, batch_pos_loss, batch_neg_loss = self._train_iter(data_loader_iter, iter_size, [data_meter, data_timer, total_timer])
       total_loss += batch_loss
       total_num += 1
 
+      if curr_iter % self.lr_update_freq == 0 or curr_iter == 1:
+        lr = self.scheduler.get_last_lr()
+        self.scheduler.step()
+        if self.is_master:
+          logging.info(f" Epoch: {epoch}, LR: {lr}")
+          self._save_checkpoint(curr_iter, 'checkpoint_'+str(curr_iter))
+
       if curr_iter % self.config.trainer.stat_freq == 0 and self.is_master:
-        self.writer.add_scalar('train/loss', batch_loss, start_iter + curr_iter)
-        self.writer.add_scalar('train/pos_loss', batch_pos_loss, start_iter + curr_iter)
-        self.writer.add_scalar('train/neg_loss', batch_neg_loss, start_iter + curr_iter)
+        self.writer.add_scalar('train/loss', batch_loss, curr_iter)
+        self.writer.add_scalar('train/pos_loss', batch_pos_loss, curr_iter)
+        self.writer.add_scalar('train/neg_loss', batch_neg_loss, curr_iter)
         logging.info(
             "Train Epoch: {} [{}/{}], Current Loss: {:.3e}"
             .format(epoch, curr_iter,
                     len(self.data_loader) //
                     iter_size, batch_loss) +
             "\tData time: {:.4f}, Train time: {:.4f}, Iter time: {:.4f}, LR: {}".format(
-                data_meter.avg, total_timer.avg - data_meter.avg, total_timer.avg, self.scheduler.get_lr()))
+                data_meter.avg, total_timer.avg - data_meter.avg, total_timer.avg, self.scheduler.get_last_lr()))
         data_meter.reset()
         total_timer.reset()
 
-  def _train_iter(self, curr_iter, data_loader_iter, start_iter, iter_size, timers):
+  def _train_iter(self, data_loader_iter, iter_size, timers):
     self.model.train()
     data_meter, data_timer, total_timer = timers
     
@@ -331,11 +337,10 @@ class PointNCELossTrainer(ContrastiveLossTrainer):
 
     assert self.config.trainer.infinite_sampler, "Only support InfSampler"
 
-    curr_iter, epoch = 0, 0
+    curr_iter = self.curr_iter
     data_loader = self.data_loader
     data_loader_iter = self.data_loader.__iter__()
     iter_size = self.iter_size
-    start_iter = 0
     data_meter, data_timer, total_timer = AverageMeter(), Timer(), Timer()
     
     total_loss = 0
@@ -345,34 +350,32 @@ class PointNCELossTrainer(ContrastiveLossTrainer):
 
       curr_iter += 1
       epoch = curr_iter / len(self.data_loader)
-
-      if curr_iter % self.lr_update_freq == 0 or curr_iter == 1:
-        lr = self.scheduler.get_lr()
-        if self.is_master:
-          logging.info(f" Epoch: {epoch}, LR: {lr}")
-          self._save_checkpoint(epoch, 'checkpoint_'+str(curr_iter))
-          self.scheduler.step()
-
-      batch_loss = self._train_iter(curr_iter, data_loader_iter, start_iter, iter_size, [data_meter, data_timer, total_timer])
-
+      batch_loss = self._train_iter(data_loader_iter, iter_size, [data_meter, data_timer, total_timer])
       total_loss += batch_loss
       total_num += 1
 
+      if curr_iter % self.lr_update_freq == 0 or curr_iter == 1:
+        lr = self.scheduler.get_last_lr()
+        if self.is_master:
+          logging.info(f" Epoch: {epoch}, LR: {lr}")
+          self._save_checkpoint(curr_iter, 'checkpoint_'+str(curr_iter))
+          self.scheduler.step()
+
       # Print logs
       if curr_iter % self.stat_freq == 0 and self.is_master:
-        self.writer.add_scalar('train/loss', batch_loss, start_iter + curr_iter)
+        self.writer.add_scalar('train/loss', batch_loss, curr_iter)
         logging.info(
             "Train Epoch: {:.3f} [{}/{}], Current Loss: {:.3e}"
             .format(epoch, curr_iter,
                     len(self.data_loader) //
                     iter_size, batch_loss) +
             "\tData time: {:.4f}, Train time: {:.4f}, Iter time: {:.4f}, LR: {}".format(
-                data_meter.avg, total_timer.avg - data_meter.avg, total_timer.avg, self.scheduler.get_lr()))
+                data_meter.avg, total_timer.avg - data_meter.avg, total_timer.avg, self.scheduler.get_last_lr()))
         data_meter.reset()
         total_timer.reset()
 
 
-  def _train_iter(self, curr_iter, data_loader_iter, start_iter, iter_size, timers):
+  def _train_iter(self, data_loader_iter, iter_size, timers):
     data_meter, data_timer, total_timer = timers
     
     self.optimizer.zero_grad()

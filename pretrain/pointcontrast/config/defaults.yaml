@@ -3,12 +3,8 @@ defaults:
   - hydra/hydra_logging: colorlog
   - distribution: single_local
 
-logging:
-  out_dir: outputs_dir
-
 trainer:
   trainer: HardestContrastiveLossTrainer
-  save_freq_epoch: 1
   batch_size: 4
   val_batch_size: 1
 
@@ -67,7 +63,6 @@ net:
 # Optimizer arguments
 opt:
   optimizer: SGD
-  max_epoch: 100
   max_iter: 300000
   lr: 1e-1
   momentum: 0.8
@@ -83,12 +78,11 @@ opt:
   icp_cache_path: /home/chrischoy/datasets/FCGF/kitti/icp/
 
 misc:
+  exp: default
   use_gpu: True
   num_gpus: 1
-  weights: 
-  weights_dir: 
-  resume: 
-  resume_dir: 
+  weight: 
+  config: 
   lenient_weight_loading: False # Weights with the same size will be loaded
 
   train_num_thread: 2
@@ -143,6 +137,6 @@ data:
 
 hydra:
   run:
-    dir: /checkpoint/jihou/${now:%Y-%m-%d}/${logging.out_dir}
+    dir: /checkpoint/jihou/${now:%Y-%m-%d}/${misc.exp}
   sweep:
-    dir: /checkpoint/jihou/checkpoints/${now:%Y-%m-%d}/${logging.out_dir}
+    dir: /checkpoint/jihou/checkpoints/${now:%Y-%m-%d}/${misc.exp}

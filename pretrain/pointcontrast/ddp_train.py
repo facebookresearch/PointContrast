@@ -25,7 +25,6 @@ torch.cuda.manual_seed(0)
 
 logging.basicConfig(level=logging.INFO, format="")
 
-
 def get_trainer(trainer):
   if trainer == 'HardestContrastiveLossTrainer':
     return HardestContrastiveLossTrainer
@@ -37,23 +36,24 @@ def get_trainer(trainer):
 @hydra.main(config_path='config', config_name='defaults.yaml')
 def main(config):
   logger = logging.getLogger()
-  if config.misc.resume_dir:
-    resume_config = OmegaConf.load(os.path.join(config.misc.resume_dir, 'config.yaml'))
-    resume_dir = config.misc.resume_dir
-
-    config = resume_config
-    config.misc.resume_dir = resume_dir
-    config.misc.resume = os.path.join(resume_config.logging.out_dir + 'checkpoint.pth')
+  if config.misc.config:
+    resume_config = OmegaConf.load(config.misc.config)
+    if config.misc.weight:
+      weight = config.misc.weight
+      config = resume_config
+      config.misc.weight = weight
+    else:
+      config = resume_config
 
   logging.info('===> Configurations')
   logging.info(config.pretty())
 
   # Convert to dict
+  import ipdb; ipdb.set_trace()
   if config.misc.num_gpus > 1:
       mpu.multi_proc_run(config.misc.num_gpus,
               fun=single_proc_run, fun_args=(config,))
   else:
-      import ipdb; ipdb.set_trace()
       single_proc_run(config)
 
 def single_proc_run(config):
