@@ -1,0 +1,25 @@
+distributed:
+  distributed_no_spawn: True
+  distributed_world_size: 8
+  distributed_backend: nccl
+  ddp_backend: c10d
+  device_id: 0
+  distributed_rank: 0
+  bucket_cap_mb: 25
+  distributed_port: 10010
+  distributed_init_method: placeholder
+
+hydra:
+  launcher:
+    params:
+      partition: learnfair 
+      submitit_folder: ${hydra.sweep.dir}/.submitit/%j
+      name: ${hydra.job.name}
+      timeout_min: 3600
+      cpus_per_task: 10
+      gpus_per_node: 8
+      tasks_per_node: 8
+      mem_gb: 480
+      nodes: 1
+      constraint: volta32gb
+      max_num_timeout: 3

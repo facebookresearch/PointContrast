@@ -4,6 +4,7 @@ import gc
 import logging
 import numpy as np
 import json
+from omegaconf import OmegaConf
 import torch.nn as nn
 
 import torch
@@ -55,73 +56,69 @@ class ContrastiveLossTrainer:
       self,
       config,
       data_loader):
-    assert config.use_gpu and torch.cuda.is_available(), "DDP mode must support GPU"
+    assert config.misc.use_gpu and torch.cuda.is_available(), "DDP mode must support GPU"
     num_feats = 3  # always 3 for finetuning.
 
-    self.is_master = du.is_master_proc(config.num_gpus) if config.num_gpus > 1 else True
+    self.is_master = du.is_master_proc(config.misc.num_gpus) if config.misc.num_gpus > 1 else True
 
     # Model initialization
     self.cur_device = torch.cuda.current_device()
-    Model = load_model(config.model)
+    Model = load_model(config.net.model)
     model = Model(
         num_feats,
-        config.model_n_out,
+        config.net.model_n_out,
         config,
         D=3)
     model = model.cuda(device=self.cur_device)
-    if config.num_gpus > 1:
+    if config.misc.num_gpus > 1:
         model = torch.nn.parallel.DistributedDataParallel(
                 module=model,
                 device_ids=[self.cur_device],
                 output_device=self.cur_device,
                 broadcast_buffers=False,
         )
-    if config.weights:
-      checkpoint = torch.load(config.weights, map_location=lambda s, l: default_restore_location(s, 'cpu'))
+    if config.misc.weights:
+      checkpoint = torch.load(config.misc.weights, map_location=lambda s, l: default_restore_location(s, 'cpu'))
       model.load_state_dict(checkpoint['state_dict'])
 
     self.config = config
     self.model = model
-    self.max_epoch = config.max_epoch
-    self.save_freq = config.save_freq_epoch
+    self.max_epoch = config.opt.max_epoch
+    self.save_freq = config.trainer.save_freq_epoch
 
-    self.optimizer = getattr(optim, config.optimizer)(
+    self.optimizer = getattr(optim, config.opt.optimizer)(
         model.parameters(),
-        lr=config.lr,
-        momentum=config.momentum,
-        weight_decay=config.weight_decay)
+        lr=config.opt.lr,
+        momentum=config.opt.momentum,
+        weight_decay=config.opt.weight_decay)
 
-    self.scheduler = optim.lr_scheduler.ExponentialLR(self.optimizer, config.exp_gamma)
+    self.scheduler = optim.lr_scheduler.ExponentialLR(self.optimizer, config.opt.exp_gamma)
 
     self.start_epoch = 1
-    self.checkpoint_dir = config.out_dir
+    self.checkpoint_dir = config.logging.out_dir
 
     if self.is_master:
         ensure_dir(self.checkpoint_dir)
-        json.dump(
-            config,
-            open(os.path.join(self.checkpoint_dir, 'config.json'), 'w'),
-            indent=4,
-            sort_keys=False)
+        OmegaConf.save(config, os.path.join(self.checkpoint_dir, 'config.yaml'))
 
-    self.iter_size = config.iter_size
+    self.iter_size = config.opt.iter_size
     self.batch_size = data_loader.batch_size
     self.data_loader = data_loader
 
     self.log_step = int(np.sqrt(self.batch_size))
-    self.writer = SummaryWriter(logdir=config.out_dir)
+    self.writer = SummaryWriter(logdir=config.logging.out_dir)
 
-    self.neg_thresh = config.neg_thresh
-    self.pos_thresh = config.pos_thresh
-    self.neg_weight = config.neg_weight
+    self.neg_thresh = config.trainer.neg_thresh
+    self.pos_thresh = config.trainer.pos_thresh
+    self.neg_weight = config.trainer.neg_weight
 
-    if config.resume is not None:
-      if osp.isfile(config.resume):
-        logging.info("=> loading checkpoint '{}'".format(config.resume))
-        state = torch.load(config.resume, map_location=lambda s, l: default_restore_location(s, 'cpu'))
+    if config.misc.resume is not None:
+      if osp.isfile(config.misc.resume):
+        logging.info("=> loading checkpoint '{}'".format(config.misc.resume))
+        state = torch.load(config.misc.resume, map_location=lambda s, l: default_restore_location(s, 'cpu'))
         self.start_epoch = state['epoch']
 
-        if config.lenient_weight_loading:
+        if config.misc.lenient_weight_loading:
           matched_weights = load_state_with_same_shape(model, state['state_dict'])
           model_dict = model.state_dict()
           model_dict.update(matched_weights)
@@ -131,7 +128,7 @@ class ContrastiveLossTrainer:
           self.scheduler.load_state_dict(state['scheduler'])
           self.optimizer.load_state_dict(state['optimizer'])
       else:
-        raise ValueError(f"=> no checkpoint found at '{config.resume}'")
+        raise ValueError(f"=> no checkpoint found at '{config.misc.resume}'")
 
   def _save_checkpoint(self, epoch, filename='checkpoint'):
     if not self.is_master:
@@ -155,8 +152,8 @@ class HardestContrastiveLossTrainer(ContrastiveLossTrainer):
       data_loader):
     ContrastiveLossTrainer.__init__(self, config, data_loader)
  
-    self.stat_freq = config.stat_freq
-    self.lr_update_freq = config.lr_update_freq
+    self.stat_freq = config.trainer.stat_freq
+    self.lr_update_freq = config.trainer.lr_update_freq
 
   def contrastive_hardest_negative_loss(self,
                                         F0,
@@ -214,7 +211,7 @@ class HardestContrastiveLossTrainer(ContrastiveLossTrainer):
 
   def train(self):
 
-    assert self.config.infinite_sampler, "Only support InfSampler"
+    assert self.config.trainer.infinite_sampler, "Only support InfSampler"
     
     curr_iter, epoch = 0, 0
     data_loader = self.data_loader
@@ -226,7 +223,7 @@ class HardestContrastiveLossTrainer(ContrastiveLossTrainer):
     total_loss = 0
     total_num = 0.0
 
-    while (curr_iter < self.config.max_iter):
+    while (curr_iter < self.config.opt.max_iter):
 
       curr_iter += 1
       epoch = curr_iter / len(self.data_loader)
@@ -243,7 +240,7 @@ class HardestContrastiveLossTrainer(ContrastiveLossTrainer):
       total_loss += batch_loss
       total_num += 1
 
-      if curr_iter % self.config.stat_freq == 0 and self.is_master:
+      if curr_iter % self.config.trainer.stat_freq == 0 and self.is_master:
         self.writer.add_scalar('train/loss', batch_loss, start_iter + curr_iter)
         self.writer.add_scalar('train/pos_loss', batch_pos_loss, start_iter + curr_iter)
         self.writer.add_scalar('train/neg_loss', batch_neg_loss, start_iter + curr_iter)
@@ -285,8 +282,8 @@ class HardestContrastiveLossTrainer(ContrastiveLossTrainer):
           F0,
           F1,
           pos_pairs,
-          num_pos=self.config.num_pos_per_batch * self.batch_size,
-          num_hn_samples=self.config.num_hn_samples_per_batch *
+          num_pos=self.config.trainer.num_pos_per_batch * self.batch_size,
+          num_hn_samples=self.config.trainer.num_hn_samples_per_batch *
           self.batch_size)
 
       pos_loss /= iter_size
@@ -296,8 +293,8 @@ class HardestContrastiveLossTrainer(ContrastiveLossTrainer):
       loss.backward()
       
       result = {"loss": loss, "pos_loss": pos_loss, "neg_loss": neg_loss}
-      if self.config.num_gpus > 1:
-        result = du.scaled_all_reduce_dict(result, self.config.num_gpus)
+      if self.config.misc.num_gpus > 1:
+        result = du.scaled_all_reduce_dict(result, self.config.misc.num_gpus)
       batch_loss += result["loss"].item()
       batch_pos_loss += result["pos_loss"].item()
       batch_neg_loss += result["neg_loss"].item()
@@ -319,20 +316,20 @@ class PointNCELossTrainer(ContrastiveLossTrainer):
       config,
       data_loader):
     ContrastiveLossTrainer.__init__(self, config, data_loader)
-    self.T = config.nceT
-    self.npos = config.npos
-    self.nneg = config.nneg
-    self.use_all_negatives = config.use_all_negatives
-    self.use_all_positives = config.use_all_positives
-    self.self_contrast = config.self_contrast
-    self.no_additional_neg = config.no_additional_neg
+    self.T = config.misc.nceT
+    self.npos = config.misc.npos
+    self.nneg = config.misc.nneg
+    self.use_all_negatives = config.misc.use_all_negatives
+    self.use_all_positives = config.misc.use_all_positives
+    self.self_contrast = config.misc.self_contrast
+    self.no_additional_neg = config.misc.no_additional_neg
 
-    self.stat_freq = config.stat_freq
-    self.lr_update_freq = config.lr_update_freq
+    self.stat_freq = config.trainer.stat_freq
+    self.lr_update_freq = config.trainer.lr_update_freq
 
   def train(self):
 
-    assert self.config.infinite_sampler, "Only support InfSampler"
+    assert self.config.trainer.infinite_sampler, "Only support InfSampler"
 
     curr_iter, epoch = 0, 0
     data_loader = self.data_loader
@@ -344,7 +341,7 @@ class PointNCELossTrainer(ContrastiveLossTrainer):
     total_loss = 0
     total_num = 0.0
 
-    while (curr_iter < self.config.max_iter):
+    while (curr_iter < self.config.opt.max_iter):
 
       curr_iter += 1
       epoch = curr_iter / len(self.data_loader)
@@ -427,8 +424,8 @@ class PointNCELossTrainer(ContrastiveLossTrainer):
       loss.backward(
       )  # To accumulate gradient, zero gradients only at the begining of iter_size
       result = {"loss": loss}
-      if self.config.num_gpus > 1:
-        result = du.scaled_all_reduce_dict(result, self.config.num_gpus)
+      if self.config.misc.num_gpus > 1:
+        result = du.scaled_all_reduce_dict(result, self.config.misc.num_gpus)
       batch_loss += result["loss"].item()
 
     self.optimizer.step()

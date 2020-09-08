@@ -211,15 +211,15 @@ class PairDataset(torch.utils.data.Dataset):
     self.files = []
     self.data_objects = []
     self.transform = transform
-    self.voxel_size = config.voxel_size
+    self.voxel_size = config.data.voxel_size
     self.matching_search_voxel_size = \
-        config.voxel_size * config.positive_pair_search_voxel_size_multiplier
+        config.data.voxel_size * config.trainer.positive_pair_search_voxel_size_multiplier
 
     self.random_scale = random_scale
-    self.min_scale = config.min_scale
-    self.max_scale = config.max_scale
+    self.min_scale = config.trainer.min_scale
+    self.max_scale = config.trainer.max_scale
     self.random_rotation = random_rotation
-    self.rotation_range = config.rotation_range
+    self.rotation_range = config.trainer.rotation_range
     self.randg = np.random.RandomState()
     if manual_seed:
       self.reset_seed()
@@ -251,7 +251,7 @@ class IndoorPairDataset(PairDataset):
                config=None):
     PairDataset.__init__(self, phase, transform, random_rotation, random_scale,
                          manual_seed, config)
-    self.root = root = config.threed_match_dir
+    self.root = root = config.data.threed_match_dir
     logging.info(f"Loading the subset {phase} from {root}")
 
     subset_names = open(self.DATA_FILES[phase]).read().split()
@@ -355,10 +355,10 @@ class ScanNetIndoorPairDataset(PairDataset):
     PairDataset.__init__(self, phase, transform, random_rotation, random_scale,
                          manual_seed, config)
     if phase == "train":
-        self.root_filelist = root = config.scannet_match_dir
+        self.root_filelist = root = config.data.scannet_match_dir
         self.root = '/'
     elif phase == "val":
-        self.root = root = config.threed_match_dir
+        self.root = root = config.data.threed_match_dir
     logging.info(f"Loading the subset {phase} from {root}")
     print("[PHASE]: ##########", phase) 
     if phase == "train":
@@ -370,8 +370,8 @@ class ScanNetIndoorPairDataset(PairDataset):
          self.files.append([fname[0], fname[1]])
        
        print("pretraining dataset size:", len(self.files))
-       if config.subset_length > 0:
-           self.files = random.sample(self.files, config.subset_length)
+       if config.trainer.subset_length > 0:
+           self.files = random.sample(self.files, config.trainer.subset_length)
            print("Using pretraining dataset subset size:", len(self.files))
        else:
            print("Using all pretraining dataset size:", len(self.files))
@@ -482,10 +482,10 @@ class ScanNetHardIndoorPairDataset(PairDataset):
     PairDataset.__init__(self, phase, transform, random_rotation, random_scale,
                          manual_seed, config)
     if phase == "train":
-        self.root_filelist = root = config.scannet_match_dir
+        self.root_filelist = root = config.data.scannet_match_dir
         self.root = '/'
     elif phase == "val":
-        self.root = root = config.threed_match_dir
+        self.root = root = config.data.threed_match_dir
     logging.info(f"Loading the subset {phase} from {root}")
     print("[PHASE]: ##########", phase) 
     
@@ -503,8 +503,8 @@ class ScanNetHardIndoorPairDataset(PairDataset):
        for fname in fnames:
          self.files.append([fname[0], fname[1]])
        print("pretraining dataset size:", len(self.files))
-       if config.subset_length > 0:
-           self.files = random.sample(self.files, config.subset_length)
+       if config.trainer.subset_length > 0:
+           self.files = random.sample(self.files, config.trainer.subset_length)
            print("Using pretraining dataset subset size:", len(self.files))
        else:
            print("Using all pretraining dataset size:", len(self.files))
@@ -622,19 +622,19 @@ class KITTIPairDataset(PairDataset):
                config=None):
     # For evaluation, use the odometry dataset training following the 3DFeat eval method
     if self.IS_ODOMETRY:
-      self.root = root = config.kitti_root + '/dataset'
+      self.root = root = config.data.kitti_root + '/dataset'
       random_rotation = self.TEST_RANDOM_ROTATION
     else:
-      self.date = config.kitti_date
-      self.root = root = os.path.join(config.kitti_root, self.date)
+      self.date = config.data.kitti_date
+      self.root = root = os.path.join(config.data.kitti_root, self.date)
 
-    self.icp_path = config.icp_cache_path
+    self.icp_path = config.opt.icp_cache_path
     PairDataset.__init__(self, phase, transform, random_rotation, random_scale,
                          manual_seed, config)
 
     logging.info(f"Loading the subset {phase} from {root}")
     # Use the kitti root
-    self.max_time_diff = max_time_diff = config.kitti_max_time_diff
+    self.max_time_diff = max_time_diff = config.data.kitti_max_time_diff
 
     subset_names = open(self.DATA_FILES[phase]).read().split()
     for dirname in subset_names:
@@ -877,14 +877,14 @@ class KITTINMPairDataset(KITTIPairDataset):
                manual_seed=False,
                config=None):
     if self.IS_ODOMETRY:
-      self.root = root = config.kitti_root + '/dataset'
+      self.root = root = config.data.kitti_root + '/dataset'
       random_rotation = self.TEST_RANDOM_ROTATION
     else:
-      self.date = config.kitti_date
-      self.root = root = os.path.join(config.kitti_root, self.date)
+      self.date = config.data.kitti_date
+      self.root = root = os.path.join(config.data.kitti_root, self.date)
     PairDataset.__init__(self, phase, transform, random_rotation, random_scale,
                          manual_seed, config)
-    self.icp_path = config.icp_cache_path
+    self.icp_path = config.opt.icp_cache_path
 
     logging.info(f"Loading the subset {phase} from {root}")
     # Use the kitti root
@@ -995,15 +995,15 @@ class SingleDataset(torch.utils.data.Dataset):
     self.files = []
     self.data_objects = []
     self.transform = transform
-    self.voxel_size = config.voxel_size
+    self.voxel_size = config.data.voxel_size
     self.matching_search_voxel_size = \
-        config.voxel_size * config.positive_pair_search_voxel_size_multiplier
+        config.data.voxel_size * config.trainer.positive_pair_search_voxel_size_multiplier
 
     self.random_scale = random_scale
-    self.min_scale = config.min_scale
-    self.max_scale = config.max_scale
+    self.min_scale = config.trainer.min_scale
+    self.max_scale = config.trainer.max_scale
     self.random_rotation = random_rotation
-    self.rotation_range = config.rotation_range
+    self.rotation_range = config.trainer.rotation_range
     self.randg = np.random.RandomState()
     if manual_seed:
       self.reset_seed()
@@ -1043,9 +1043,9 @@ class ShapeNetDataset(SingleDataset):
                config=None):
     SingleDataset.__init__(self, phase, transform, random_rotation, random_scale,
                          manual_seed, config)
-    self.root = root = config.shapenet_dir
+    self.root = root = config.data.shapenet_dir
     self.phase = phase
-    self.npoints = config.shapenet_npoints
+    self.npoints = config.data.shapenet_npoints
     logging.info(f"Loading the subset {phase} from {root}")
     self.normalize = True
 
@@ -1187,24 +1187,24 @@ def make_data_loader(config, phase, batch_size, num_threads=0, shuffle=None, inf
   if shuffle is None:
     shuffle = phase != 'test'
 
-  if config.dataset not in dataset_str_mapping.keys():
-    logging.error(f'Dataset {config.dataset}, does not exists in ' +
+  if config.data.dataset not in dataset_str_mapping.keys():
+    logging.error(f'Dataset {config.data.dataset}, does not exists in ' +
                   ', '.join(dataset_str_mapping.keys()))
 
-  Dataset = dataset_str_mapping[config.dataset]
+  Dataset = dataset_str_mapping[config.data.dataset]
 
 
   use_random_scale = True
   use_random_rotation = True
-  if config.dataset == "ShapeNetDataset":
+  if config.data.dataset == "ShapeNetDataset":
     use_random_scale = False
     use_random_rotation = False
 
 
   transforms = []
   if phase in ['train', 'trainval']:
-    use_random_rotation = config.use_random_rotation
-    use_random_scale = config.use_random_scale
+    use_random_rotation = config.trainer.use_random_rotation
+    use_random_scale = config.trainer.use_random_scale
     transforms += [t.Jitter()]
 
   dset = Dataset(
@@ -1214,14 +1214,14 @@ def make_data_loader(config, phase, batch_size, num_threads=0, shuffle=None, inf
       random_rotation=use_random_rotation,
       config=config)
   print(dset)
-  if config.dataset != "ShapeNetDataset":
+  if config.data.dataset != "ShapeNetDataset":
       collate_pair_fn = default_collate_pair_fn
   else:
       collate_pair_fn = shapenet_collate_pair_fn
   print("original batch_size=", batch_size)
-  batch_size = batch_size // config.num_gpus
+  batch_size = batch_size // config.misc.num_gpus
 
-  if config.num_gpus > 1:
+  if config.misc.num_gpus > 1:
     if inf_sample:
       sampler = DistributedInfSampler(dset)
     else:

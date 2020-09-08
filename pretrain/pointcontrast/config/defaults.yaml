@@ -1,0 +1,148 @@
+defaults:
+  - hydra/launcher: submitit_slurm
+  - hydra/hydra_logging: colorlog
+  - distribution: single_local
+
+logging:
+  out_dir: outputs_dir
+
+trainer:
+  trainer: HardestContrastiveLossTrainer
+  save_freq_epoch: 1
+  batch_size: 4
+  val_batch_size: 1
+
+  # Hard negative mining
+  use_hard_negative: True
+  hard_negative_sample_ratio: 0.05
+  hard_negative_max_num: 3000
+  num_pos_per_batch: 1024
+  num_hn_samples_per_batch: 256
+
+  # Metric learning loss
+  neg_thresh: 1.4
+  pos_thresh: 0.1
+  neg_weight: 1.0
+
+  # Data augmentation
+  use_random_scale: False
+  min_scale: 0.8
+  max_scale: 1.2
+  use_random_rotation: True
+  rotation_range: 360
+
+  # Data loader configs
+  train_phase: train
+  val_phase: val
+  test_phase: test
+
+  stat_freq: 40
+  test_valid: True
+  val_max_iter: 400
+  val_epoch_freq: 1
+  val_iter_freq: 1000
+  lr_update_freq: 1000
+  positive_pair_search_voxel_size_multiplier: 1.5
+
+  hit_ratio_thresh: 0.1
+  infinite_sampler: True 
+
+  subset_length: 0
+
+  # Triplets
+  triplet_num_pos: 256
+  triplet_num_hn: 512
+  triplet_num_rand: 1024
+
+# Network specific configurations
+net:
+  model: ResUNetBN2C
+  model_n_out: 32 #Feature dimension
+  conv1_kernel_size: 3
+  normalize_feature: True
+  dist_type: L2
+  best_val_metric: feat_match_ratio
+  cls_head_dim: 55
+
+# Optimizer arguments
+opt:
+  optimizer: SGD
+  max_epoch: 100
+  max_iter: 300000
+  lr: 1e-1
+  momentum: 0.8
+  sgd_momentum: 0.9
+  sgd_dampening: 0.1
+  adam_beta1: 0.9
+  adam_beta2: 0.999
+  weight_decay: 1e-4
+  iter_size: 1 # accumulate gradient
+  bn_momentum: 0.05
+  exp_gamma: 0.99
+  scheduler: ExpLR
+  icp_cache_path: /home/chrischoy/datasets/FCGF/kitti/icp/
+
+misc:
+  use_gpu: True
+  num_gpus: 1
+  weights: 
+  weights_dir: 
+  resume: 
+  resume_dir: 
+  lenient_weight_loading: False # Weights with the same size will be loaded
+
+  train_num_thread: 2
+  val_num_thread: 1
+  test_num_thread: 2
+  fast_validation: False
+  nn_max_n: 500 # The maximum number of features to find nearest neighbors in batch
+
+  # NCE related
+  nceT: 0.07
+  npos: 1024
+  nneg: 2048
+  use_all_negatives: False
+  use_all_positives: False
+  self_contrast: False
+  no_additional_neg: False
+
+  # TODO(s9xie): all args for scannet training
+  num_workers: 2
+  num_val_workers: 1
+  train_limit_numpoints: 0
+  data_aug_color_trans_ratio: 0.10 # Color translation range
+  data_aug_color_jitter_std: 0.05 # STD of color jitter
+  normalize_color: True
+  data_aug_scale_min: 0.9
+  data_aug_scale_max: 1.1
+  data_aug_hue_max: 0.5 # Hue translation range. [0, 1]
+  data_aug_saturation_max: 0.20 #Saturation translation range, [0, 1]
+
+  cache_data: False
+  scannet_path: /home/chrischoy/datasets/scannet/scannet_preprocessed # Scannet online voxelization dataset root dir
+
+  ignore_label: 255
+  return_transformation: False
+  free_rot: True
+  use_color_feat: True
+  use_random_crop: False
+  crop_factor: 1.5
+  crop_min_num_points: 5000
+
+# Dataset specific configurations
+data:
+  dataset: ThreeDMatchPairDataset
+  voxel_size: 0.025
+  threed_match_dir: /private/home/s9xie/3d_ssl/FCGF/data/threedmatch/
+  scannet_match_dir: /private/home/jgu/data/3d_ssl2/ScannetScan/data_f25/overlap-30.txt
+  shapenet_dir: /private/home/s9xie/3d_ssl/pointnet2/data/ShapeNetCore.v2/shrec
+  shapenet_npoints: 2048
+  kitti_root: /home/chrischoy/datasets/FCGF/kitti/
+  kitti_max_time_diff: 3 #max time difference between pairs (non inclusive)
+  kitti_date: 2011_09_26
+
+hydra:
+  run:
+    dir: /checkpoint/jihou/${now:%Y-%m-%d}/${logging.out_dir}
+  sweep:
+    dir: /checkpoint/jihou/checkpoints/${now:%Y-%m-%d}/${logging.out_dir}
