@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export EXP=slurm_contrast
+export EXP=PointContrast
 
 python ddp_train.py -m \
 	net.model=Res16UNet34C \
@@ -13,11 +13,11 @@ python ddp_train.py -m \
 	trainer.subset_length=0 \
 	trainer.batch_size=32 \
 	trainer.test_valid=False \
-	trainer.hit_ratio_thresh=0.1 \
+	trainer.hit_ratio_thresh=0.04 \
 	trainer.val_batch_size=8 \
     trainer.stat_freq=1 \
     trainer.lr_update_freq=250 \
-	trainer.val_iter_freq=5000 \
+	trainer.val_iter_freq=2000 \
 	trainer.infinite_sampler=True\
 	misc.num_gpus=8 \
 	misc.free_rot=True \
