@@ -304,14 +304,14 @@ class HardestContrastiveLossTrainer(ContrastiveLossTrainer):
       batch_pos_loss += result["pos_loss"].item()
       batch_neg_loss += result["neg_loss"].item()
 
-      self.optimizer.step()
+    self.optimizer.step()
 
-      torch.cuda.empty_cache()
+    torch.cuda.empty_cache()
 
-      total_timer.toc()
-      data_meter.update(data_time)
+    total_timer.toc()
+    data_meter.update(data_time)
 
-      return batch_loss, batch_pos_loss, batch_neg_loss
+    return batch_loss, batch_pos_loss, batch_neg_loss
 
 
 class PointNCELossTrainer(ContrastiveLossTrainer):
