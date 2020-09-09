@@ -25,7 +25,6 @@ trainer_arg.add_argument('--val_batch_size', type=int, default=1)
 
 # Hard negative mining
 trainer_arg.add_argument('--use_hard_negative', type=str2bool, default=True)
-trainer_arg.add_argument('--hard_negative_sample_ratio', type=int, default=0.05)
 trainer_arg.add_argument('--hard_negative_max_num', type=int, default=3000)
 trainer_arg.add_argument('--num_pos_per_batch', type=int, default=1024)
 trainer_arg.add_argument('--num_hn_samples_per_batch', type=int, default=256)
