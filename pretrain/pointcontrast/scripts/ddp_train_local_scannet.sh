@@ -8,7 +8,7 @@ python ddp_train.py -m \
     net.conv1_kernel_size=3 \
 	opt.lr=0.1 \
     opt.max_iter=20000 \
-	data.dataset=ScanNetHardMatchPairDataset \
+	data.dataset=ScanNetHardMatchPairDataset,ScanNetMatchPairDataset \
 	data.voxel_size=0.025 \
 	trainer.trainer=PointNCELossTrainer \
 	trainer.subset_length=0 \
