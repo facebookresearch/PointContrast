@@ -273,7 +273,6 @@ class HardestContrastiveLossTrainer(ContrastiveLossTrainer):
       data_timer.tic()
       input_dict = data_loader_iter.next()
       data_time += data_timer.toc(average=False)
-      import ipdb; ipdb.set_trace()
 
       sinput0 = ME.SparseTensor(
           input_dict['sinput0_F'], coords=input_dict['sinput0_C']).to(self.cur_device)
