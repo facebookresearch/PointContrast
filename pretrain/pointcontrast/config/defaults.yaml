@@ -77,7 +77,7 @@ opt:
   icp_cache_path: /home/chrischoy/datasets/FCGF/kitti/icp/
 
 misc:
-  exp: default
+  out_dir: /checkpoint/jihou/checkpoints/default
   use_gpu: True
   num_gpus: 1
   weight: 
@@ -136,9 +136,9 @@ data:
 
 hydra:
   run:
-    dir: /checkpoint/jihou/${now:%Y-%m-%d}/${misc.exp}
+    dir: ${misc.out_dir}
   sweep:
-    dir: /checkpoint/jihou/checkpoints/${now:%Y-%m-%d}/${misc.exp}
+    dir: ${misc.out_dir}
   launcher:
     params:
       partition: dev

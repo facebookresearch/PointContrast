@@ -1,19 +1,20 @@
 #!/bin/bash
 
-export EXP=PointContrast
+export OUT_DIR=/checkpoint/s9xie/ji_exps/scannet_nce
+#export OUT_DIR=/checkpoint/jihou/checkpoints/scannet_nce
 
 python ddp_train.py -m \
 	net.model=Res16UNet34C \
     net.conv1_kernel_size=3 \
 	opt.lr=0.1 \
-    opt.max_iter=100000 \
+    opt.max_iter=20000 \
 	data.dataset=ScanNetHardMatchPairDataset \
 	data.voxel_size=0.025 \
-	trainer.trainer=HardestContrastiveLossTrainer \
+	trainer.trainer=PointNCELossTrainer \
 	trainer.subset_length=0 \
 	trainer.batch_size=32 \
 	trainer.test_valid=False \
-	trainer.hit_ratio_thresh=0.04 \
+	trainer.hit_ratio_thresh=0.1 \
 	trainer.val_batch_size=8 \
     trainer.stat_freq=1 \
     trainer.lr_update_freq=250 \
@@ -29,7 +30,8 @@ python ddp_train.py -m \
     misc.self_contrast=True \
     misc.nceT=0.4 \
 	misc.use_color_feat=True \
-	misc.exp=$EXP \
+	misc.out_dir=${OUT_DIR} \
+	#trainer.trainer=HardestContrastiveLossTrainer \
 	#misc.train_num_thread=0 \
 	#misc.weight=/checkpoint/jihou/checkpoints/saining_hardest/checkpoint.pth \
 	#misc.config=/checkpoint/jihou/2020-09-08/outputs_hardest/outputs_hardest/config.yaml \
