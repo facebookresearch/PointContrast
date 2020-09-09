@@ -49,7 +49,6 @@ def main(config):
   logging.info(config.pretty())
 
   # Convert to dict
-  import ipdb; ipdb.set_trace()
   if config.misc.num_gpus > 1:
       mpu.multi_proc_run(config.misc.num_gpus,
               fun=single_proc_run, fun_args=(config,))

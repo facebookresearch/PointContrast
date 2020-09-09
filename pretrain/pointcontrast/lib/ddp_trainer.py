@@ -143,7 +143,6 @@ class ContrastiveLossTrainer:
         'scheduler': self.scheduler.state_dict(),
         'config': self.config
     }
-    import ipdb; ipdb.set_trace()
     filepath = os.path.join('weights', f'{filename}.pth')
     logging.info("Saving checkpoint: {} ...".format(filepath))
     torch.save(state, filepath)
