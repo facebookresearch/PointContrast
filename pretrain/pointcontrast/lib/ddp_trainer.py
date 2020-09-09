@@ -273,6 +273,7 @@ class HardestContrastiveLossTrainer(ContrastiveLossTrainer):
       data_timer.tic()
       input_dict = data_loader_iter.next()
       data_time += data_timer.toc(average=False)
+      import ipdb; ipdb.set_trace()
 
       sinput0 = ME.SparseTensor(
           input_dict['sinput0_F'], coords=input_dict['sinput0_C']).to(self.cur_device)
@@ -356,10 +357,10 @@ class PointNCELossTrainer(ContrastiveLossTrainer):
 
       if curr_iter % self.lr_update_freq == 0 or curr_iter == 1:
         lr = self.scheduler.get_last_lr()
+        self.scheduler.step()
         if self.is_master:
           logging.info(f" Epoch: {epoch}, LR: {lr}")
           self._save_checkpoint(curr_iter, 'checkpoint_'+str(curr_iter))
-          self.scheduler.step()
 
       # Print logs
       if curr_iter % self.stat_freq == 0 and self.is_master:

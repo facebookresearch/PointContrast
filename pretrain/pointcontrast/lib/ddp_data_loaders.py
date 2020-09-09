@@ -40,16 +40,23 @@ def default_collate_pair_fn(list_data):
     N0 = coords0[batch_id].shape[0]
     N1 = coords1[batch_id].shape[0]
 
+    # Ji: Move batchids to the beginning
     xyz_batch0.append(torch.from_numpy(xyz0[batch_id]))
+    #coords_batch0.append(
+    #    torch.cat((torch.from_numpy(
+    #        coords0[batch_id]).int(), torch.ones(N0, 1).int() * batch_id), 1))
     coords_batch0.append(
-        torch.cat((torch.from_numpy(
-            coords0[batch_id]).int(), torch.ones(N0, 1).int() * batch_id), 1))
+        torch.cat((torch.ones(N0, 1).int() * batch_id, 
+                   torch.from_numpy(coords0[batch_id]).int()), 1))
     feats_batch0.append(torch.from_numpy(feats0[batch_id]))
 
     xyz_batch1.append(torch.from_numpy(xyz1[batch_id]))
+    #coords_batch1.append(
+    #    torch.cat((torch.from_numpy(
+    #        coords1[batch_id]).int(), torch.ones(N1, 1).int() * batch_id), 1))
     coords_batch1.append(
-        torch.cat((torch.from_numpy(
-            coords1[batch_id]).int(), torch.ones(N1, 1).int() * batch_id), 1))
+        torch.cat((torch.ones(N1, 1).int() * batch_id, 
+                   torch.from_numpy(coords1[batch_id]).int()), 1))
     feats_batch1.append(torch.from_numpy(feats1[batch_id]))
 
     trans_batch.append(torch.from_numpy(trans[batch_id]))

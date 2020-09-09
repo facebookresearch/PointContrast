@@ -2,7 +2,7 @@
 
 export EXP=debug
 
-python3 ddp_train.py -m \
+python3 ddp_train.py \
 	net.model=Res16UNet34C \
     net.conv1_kernel_size=3 \
 	opt.lr=0.1 \
@@ -30,6 +30,7 @@ python3 ddp_train.py -m \
     misc.nceT=0.4 \
 	misc.use_color_feat=True \
 	misc.exp=$EXP \
+	misc.train_num_thread=0 \
 	#misc.weight=/checkpoint/jihou/checkpoints/saining_hardest/checkpoint.pth \
 	#misc.config=/checkpoint/jihou/2020-09-08/outputs_hardest/outputs_hardest/config.yaml \
 	#misc.lenient_weight_loading=True \
