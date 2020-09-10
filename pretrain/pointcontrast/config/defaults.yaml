@@ -4,11 +4,11 @@ defaults:
 
 trainer:
   trainer: HardestContrastiveLossTrainer
+  save_freq_epoch: 1
   batch_size: 4
 
   # Hard negative mining
   use_hard_negative: True
-  hard_negative_sample_ratio: 0.05
   hard_negative_max_num: 3000
   num_pos_per_batch: 1024
   num_hn_samples_per_batch: 256
@@ -16,6 +16,7 @@ trainer:
   # Metric learning loss
   neg_thresh: 1.4
   pos_thresh: 0.1
+  neg_weight: 1.0
 
   # Data augmentation
   use_random_scale: False
@@ -26,11 +27,8 @@ trainer:
 
   # Data loader configs
   stat_freq: 40
-  test_valid: True
   lr_update_freq: 1000
   positive_pair_search_voxel_size_multiplier: 1.5
-
-  hit_ratio_thresh: 0.1
 
 # Network specific configurations
 net:
@@ -39,8 +37,6 @@ net:
   conv1_kernel_size: 3
   normalize_feature: True
   dist_type: L2
-  best_val_metric: feat_match_ratio
-  cls_head_dim: 55
 
 # Optimizer arguments
 opt:
@@ -67,9 +63,6 @@ misc:
   lenient_weight_loading: False # Weights with the same size will be loaded
 
   train_num_thread: 2
-  val_num_thread: 1
-  test_num_thread: 2
-  fast_validation: False
   nn_max_n: 500 # The maximum number of features to find nearest neighbors in batch
 
   # NCE related
@@ -78,7 +71,6 @@ misc:
 
   # TODO(s9xie): all args for scannet training
   num_workers: 2
-  num_val_workers: 1
   train_limit_numpoints: 0
   data_aug_color_trans_ratio: 0.10 # Color translation range
   data_aug_color_jitter_std: 0.05 # STD of color jitter
@@ -90,6 +82,7 @@ misc:
 
   cache_data: False
 
+  ignore_label: 255
   return_transformation: False
   free_rot: True
   use_color_feat: True
