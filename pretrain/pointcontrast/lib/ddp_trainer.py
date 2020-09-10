@@ -16,9 +16,7 @@ from lib.dataloader import InfSampler, DistributedInfSampler
 
 from model import load_model
 import util.transform_estimation as te
-from lib.metrics import pdist, corr_dist
 from lib.timer import Timer, AverageMeter
-from lib.eval import find_nn_gpu
 
 from util.file import ensure_dir
 from util.misc import _hash
@@ -104,7 +102,6 @@ class ContrastiveLossTrainer:
             indent=4,
             sort_keys=False)
 
-    self.iter_size = config.iter_size
     self.batch_size = data_loader.batch_size
     self.data_loader = data_loader
 
@@ -158,6 +155,10 @@ class HardestContrastiveLossTrainer(ContrastiveLossTrainer):
     self.stat_freq = config.stat_freq
     self.lr_update_freq = config.lr_update_freq
 
+  def pdist(self, A, B):
+    D2 = torch.sum((A.unsqueeze(1) - B.unsqueeze(0)).pow(2), 2)
+    return torch.sqrt(D2 + 1e-7)
+
   def contrastive_hardest_negative_loss(self,
                                         F0,
                                         F1,
@@ -187,8 +188,8 @@ class HardestContrastiveLossTrainer(ContrastiveLossTrainer):
     pos_ind1 = sample_pos_pairs[:, 1].long()
     posF0, posF1 = F0[pos_ind0], F1[pos_ind1]
     
-    D01 = pdist(posF0, subF1, dist_type='L2')
-    D10 = pdist(posF1, subF0, dist_type='L2')
+    D01 = self.pdist(posF0, subF1)
+    D10 = self.pdist(posF1, subF0)
 
     D01min, D01ind = D01.min(1)
     D10min, D10ind = D10.min(1)
@@ -214,12 +215,9 @@ class HardestContrastiveLossTrainer(ContrastiveLossTrainer):
 
   def train(self):
 
-    assert self.config.infinite_sampler, "Only support InfSampler"
-    
     curr_iter, epoch = 0, 0
     data_loader = self.data_loader
     data_loader_iter = self.data_loader.__iter__()
-    iter_size = self.iter_size
     start_iter = 0
     data_meter, data_timer, total_timer = AverageMeter(), Timer(), Timer()
     
@@ -232,15 +230,13 @@ class HardestContrastiveLossTrainer(ContrastiveLossTrainer):
       epoch = curr_iter / len(self.data_loader)
 
       if curr_iter % self.lr_update_freq == 0 or curr_iter == 1:
-        lr = self.scheduler.get_lr()
-        # logging.info(f"everything else: Epoch: {epoch}, LR: {lr}")
+        lr = self.scheduler.get_last_lr()
         if self.is_master:
-          logging.info(f"master: Epoch: {epoch}, LR: {lr}")
           self._save_checkpoint(epoch, 'checkpoint_'+str(curr_iter))
 
-        self.scheduler.step()
+      batch_loss, batch_pos_loss, batch_neg_loss = self._train_iter(curr_iter, data_loader_iter, start_iter, [data_meter, data_timer, total_timer])
 
-      batch_loss, batch_pos_loss, batch_neg_loss = self._train_iter(curr_iter, data_loader_iter, start_iter, iter_size, [data_meter, data_timer, total_timer])
+      self.scheduler.step()
 
       total_loss += batch_loss
       total_num += 1
@@ -252,14 +248,13 @@ class HardestContrastiveLossTrainer(ContrastiveLossTrainer):
         logging.info(
             "Train Epoch: {} [{}/{}], Current Loss: {:.3e}"
             .format(epoch, curr_iter,
-                    len(self.data_loader) //
-                    iter_size, batch_loss) +
+                    len(self.data_loader), batch_loss) +
             "\tData time: {:.4f}, Train time: {:.4f}, Iter time: {:.4f}, LR: {}".format(
-                data_meter.avg, total_timer.avg - data_meter.avg, total_timer.avg, self.scheduler.get_lr()))
+                data_meter.avg, total_timer.avg - data_meter.avg, total_timer.avg, self.scheduler.get_last_lr()))
         data_meter.reset()
         total_timer.reset()
 
-  def _train_iter(self, curr_iter, data_loader_iter, start_iter, iter_size, timers):
+  def _train_iter(self, curr_iter, data_loader_iter, start_iter, timers):
     self.model.train()
     data_meter, data_timer, total_timer = timers
     
@@ -267,51 +262,47 @@ class HardestContrastiveLossTrainer(ContrastiveLossTrainer):
     batch_pos_loss, batch_neg_loss, batch_loss = 0, 0, 0
     data_time = 0
     total_timer.tic()
-    for _iter_idx in range(iter_size):
-      # Caffe iter size
-      data_timer.tic()
-      input_dict = data_loader_iter.next()
-      data_time += data_timer.toc(average=False)
+    data_timer.tic()
+    input_dict = data_loader_iter.next()
+    data_time += data_timer.toc(average=False)
 
-      sinput0 = ME.SparseTensor(
-          input_dict['sinput0_F'], coords=input_dict['sinput0_C']).to(self.cur_device)
-      F0 = self.model(sinput0).F
+    sinput0 = ME.SparseTensor(
+        input_dict['sinput0_F'], coords=input_dict['sinput0_C']).to(self.cur_device)
+    F0 = self.model(sinput0).F
 
-      sinput1 = ME.SparseTensor(
-          input_dict['sinput1_F'], coords=input_dict['sinput1_C']).to(self.cur_device)
+    sinput1 = ME.SparseTensor(
+        input_dict['sinput1_F'], coords=input_dict['sinput1_C']).to(self.cur_device)
 
-      F1 = self.model(sinput1).F
+    F1 = self.model(sinput1).F
 
-      pos_pairs = input_dict['correspondences']
-      pos_loss, neg_loss = self.contrastive_hardest_negative_loss(
-          F0,
-          F1,
-          pos_pairs,
-          num_pos=self.config.num_pos_per_batch * self.batch_size,
-          num_hn_samples=self.config.num_hn_samples_per_batch *
-          self.batch_size)
+    pos_pairs = input_dict['correspondences']
+    pos_loss, neg_loss = self.contrastive_hardest_negative_loss(
+        F0,
+        F1,
+        pos_pairs,
+        num_pos=self.config.num_pos_per_batch * self.batch_size,
+        num_hn_samples=self.config.num_hn_samples_per_batch *
+        self.batch_size)
 
-      pos_loss /= iter_size
-      neg_loss /= iter_size
-      loss = pos_loss + self.neg_weight * neg_loss
+    loss = pos_loss + self.neg_weight * neg_loss
 
-      loss.backward()
-      
-      result = {"loss": loss, "pos_loss": pos_loss, "neg_loss": neg_loss}
-      if self.config.num_gpus > 1:
-        result = du.scaled_all_reduce_dict(result, self.config.num_gpus)
-      batch_loss += result["loss"].item()
-      batch_pos_loss += result["pos_loss"].item()
-      batch_neg_loss += result["neg_loss"].item()
+    loss.backward()
+    
+    result = {"loss": loss, "pos_loss": pos_loss, "neg_loss": neg_loss}
+    if self.config.num_gpus > 1:
+      result = du.scaled_all_reduce_dict(result, self.config.num_gpus)
+    batch_loss += result["loss"].item()
+    batch_pos_loss += result["pos_loss"].item()
+    batch_neg_loss += result["neg_loss"].item()
 
-      self.optimizer.step()
+    self.optimizer.step()
 
-      torch.cuda.empty_cache()
+    torch.cuda.empty_cache()
 
-      total_timer.toc()
-      data_meter.update(data_time)
+    total_timer.toc()
+    data_meter.update(data_time)
 
-      return batch_loss, batch_pos_loss, batch_neg_loss
+    return batch_loss, batch_pos_loss, batch_neg_loss
 
 
 class PointNCELossTrainer(ContrastiveLossTrainer):
@@ -323,23 +314,15 @@ class PointNCELossTrainer(ContrastiveLossTrainer):
     ContrastiveLossTrainer.__init__(self, config, data_loader)
     self.T = config.nceT
     self.npos = config.npos
-    self.nneg = config.nneg
-    self.use_all_negatives = config.use_all_negatives
-    self.use_all_positives = config.use_all_positives
-    self.self_contrast = config.self_contrast
-    self.no_additional_neg = config.no_additional_neg
 
     self.stat_freq = config.stat_freq
     self.lr_update_freq = config.lr_update_freq
 
   def train(self):
 
-    assert self.config.infinite_sampler, "Only support InfSampler"
-
     curr_iter, epoch = 0, 0
     data_loader = self.data_loader
     data_loader_iter = self.data_loader.__iter__()
-    iter_size = self.iter_size
     start_iter = 0
     data_meter, data_timer, total_timer = AverageMeter(), Timer(), Timer()
     
@@ -352,13 +335,14 @@ class PointNCELossTrainer(ContrastiveLossTrainer):
       epoch = curr_iter / len(self.data_loader)
 
       if curr_iter % self.lr_update_freq == 0 or curr_iter == 1:
-        lr = self.scheduler.get_lr()
+        lr = self.scheduler.get_last_lr()
         if self.is_master:
           logging.info(f" Epoch: {epoch}, LR: {lr}")
           self._save_checkpoint(epoch, 'checkpoint_'+str(curr_iter))
-          self.scheduler.step()
 
-      batch_loss = self._train_iter(curr_iter, data_loader_iter, start_iter, iter_size, [data_meter, data_timer, total_timer])
+      batch_loss = self._train_iter(curr_iter, data_loader_iter, start_iter, [data_meter, data_timer, total_timer])
+      
+      self.scheduler.step()
 
       total_loss += batch_loss
       total_num += 1
@@ -369,69 +353,69 @@ class PointNCELossTrainer(ContrastiveLossTrainer):
         logging.info(
             "Train Epoch: {:.3f} [{}/{}], Current Loss: {:.3e}"
             .format(epoch, curr_iter,
-                    len(self.data_loader) //
-                    iter_size, batch_loss) +
+                    len(self.data_loader), batch_loss) +
             "\tData time: {:.4f}, Train time: {:.4f}, Iter time: {:.4f}, LR: {}".format(
-                data_meter.avg, total_timer.avg - data_meter.avg, total_timer.avg, self.scheduler.get_lr()))
+                data_meter.avg, total_timer.avg - data_meter.avg, total_timer.avg, self.scheduler.get_last_lr()))
         data_meter.reset()
         total_timer.reset()
 
 
-  def _train_iter(self, curr_iter, data_loader_iter, start_iter, iter_size, timers):
+  def _train_iter(self, curr_iter, data_loader_iter, start_iter, timers):
     data_meter, data_timer, total_timer = timers
     
     self.optimizer.zero_grad()
     batch_pos_loss, batch_neg_loss, batch_loss = 0, 0, 0
     data_time = 0
     total_timer.tic()
-    for _iter_idx in range(iter_size):
-      data_timer.tic()
-      input_dict = data_loader_iter.next()
-      data_time += data_timer.toc(average=False)
+    
+    data_timer.tic()
+    input_dict = data_loader_iter.next()
+    data_time += data_timer.toc(average=False)
 
-      sinput0 = ME.SparseTensor(
-          input_dict['sinput0_F'], coords=input_dict['sinput0_C']).to(self.cur_device)
-      F0 = self.model(sinput0).F
+    sinput0 = ME.SparseTensor(
+        input_dict['sinput0_F'], coords=input_dict['sinput0_C']).to(self.cur_device)
+    F0 = self.model(sinput0).F
 
-      sinput1 = ME.SparseTensor(
-          input_dict['sinput1_F'], coords=input_dict['sinput1_C']).to(self.cur_device)
-      F1 = self.model(sinput1).F
+    sinput1 = ME.SparseTensor(
+        input_dict['sinput1_F'], coords=input_dict['sinput1_C']).to(self.cur_device)
+    F1 = self.model(sinput1).F
 
-      N0, N1 = input_dict['pcd0'].shape[0], input_dict['pcd1'].shape[0]
-      pos_pairs = input_dict['correspondences'].to(self.cur_device)
-      
-      q_unique, count = pos_pairs[:, 0].unique(return_counts=True)
-      uniform = torch.distributions.Uniform(0, 1).sample([len(count)]).to(self.cur_device)
-      off = torch.floor(uniform*count).long()
-      cums = torch.cat([torch.tensor([0], device=self.cur_device), torch.cumsum(count, dim=0)[0:-1]], dim=0)
-      k_sel = pos_pairs[:, 1][off+cums]
+    N0, N1 = input_dict['pcd0'].shape[0], input_dict['pcd1'].shape[0]
+    pos_pairs = input_dict['correspondences'].to(self.cur_device)
+    
+    q_unique, count = pos_pairs[:, 0].unique(return_counts=True)
+    uniform = torch.distributions.Uniform(0, 1).sample([len(count)]).to(self.cur_device)
+    off = torch.floor(uniform*count).long()
+    cums = torch.cat([torch.tensor([0], device=self.cur_device), torch.cumsum(count, dim=0)[0:-1]], dim=0)
+    k_sel = pos_pairs[:, 1][off+cums]
 
-      q = F0[q_unique.long()]
-      k = F1[k_sel.long()]
-      assert q.shape[0] == k.shape[0]
+    q = F0[q_unique.long()]
+    k = F1[k_sel.long()]
 
-      if not self.use_all_positives and self.npos < q.shape[0]:
-          sampled_inds = np.random.choice(q.shape[0], self.npos, replace=False)
-          q = q[sampled_inds]
-          k = k[sampled_inds]
-      
-      npos = q.shape[0] 
+    if self.npos < q.shape[0]:
+        sampled_inds = np.random.choice(q.shape[0], self.npos, replace=False)
+        q = q[sampled_inds]
+        k = k[sampled_inds]
+    else:
+        raise ValueError('npos too large.')
+    
+    npos = q.shape[0] 
 
-      # pos logit
-      logits = torch.mm(q, k.transpose(1, 0)) # npos by npos
-      labels = torch.arange(npos).cuda().long()
-      out = torch.div(logits, self.T)
-      out = out.squeeze().contiguous()
+    # pos logit
+    logits = torch.mm(q, k.transpose(1, 0)) # npos by npos
+    labels = torch.arange(npos).cuda().long()
+    out = torch.div(logits, self.T)
+    out = out.squeeze().contiguous()
 
-      criterion = NCESoftmaxLoss().cuda()
-      loss = criterion(out, labels)
+    criterion = NCESoftmaxLoss().cuda()
+    loss = criterion(out, labels)
 
-      loss.backward(
-      )  # To accumulate gradient, zero gradients only at the begining of iter_size
-      result = {"loss": loss}
-      if self.config.num_gpus > 1:
-        result = du.scaled_all_reduce_dict(result, self.config.num_gpus)
-      batch_loss += result["loss"].item()
+    loss.backward()
+
+    result = {"loss": loss}
+    if self.config.num_gpus > 1:
+      result = du.scaled_all_reduce_dict(result, self.config.num_gpus)
+    batch_loss += result["loss"].item()
 
     self.optimizer.step()
 

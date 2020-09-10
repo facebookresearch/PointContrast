@@ -43,7 +43,7 @@ def single_proc_run(config, resume=False):
       config.train_phase,
       config.batch_size,
       num_threads=config.train_num_thread,
-      inf_sample=config.infinite_sampler)
+      inf_sample=True)
 
   Trainer = get_trainer(config.trainer)
   trainer = Trainer(

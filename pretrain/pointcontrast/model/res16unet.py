@@ -34,7 +34,6 @@ class Res16UNetBase(ResNetBase):
     # Setup net_metadata
     dilations = self.DILATIONS
     bn_momentum = config.bn_momentum
-    cls_head_dim = config.cls_head_dim
 
     def space_n_time_m(n, m):
       return n if D == 3 else [n, n, n, m]
@@ -201,7 +200,6 @@ class Res16UNetBase(ResNetBase):
         bn_momentum=bn_momentum)
 
     self.final = conv(self.PLANES[7], out_channels, kernel_size=1, stride=1, bias=True, D=D)
-    #self.cls_head = conv(self.PLANES[4], cls_head_dim, kernel_size=1, stride=1, bias=True, D=D)
     self.relu = MinkowskiReLU(inplace=True)
 
   def forward(self, x):
@@ -297,7 +295,6 @@ class MonitorRes16UNetBase(ResNetBase):
     # Setup net_metadata
     dilations = self.DILATIONS
     bn_momentum = config.bn_momentum
-    cls_head_dim = config.cls_head_dim
 
     def space_n_time_m(n, m):
       return n if D == 3 else [n, n, n, m]
@@ -463,8 +460,6 @@ class MonitorRes16UNetBase(ResNetBase):
         bn_momentum=bn_momentum)
 
     self.final = conv(self.PLANES[7], out_channels, kernel_size=1, stride=1, bias=True, D=D)
-    # self.cls_head = conv(self.PLANES[4], cls_head_dim, kernel_size=1, stride=1, bias=True, D=D)
-    self.monitor_head = nn.Linear(self.PLANES[4], cls_head_dim, bias=True)
     self.relu = MinkowskiReLU(inplace=True)
     self.global_avg = MinkowskiGlobalPooling(dimension=D)
 
@@ -530,10 +525,6 @@ class MonitorRes16UNetBase(ResNetBase):
     out =  self.final(decoder_out)
 
     gap = self.global_avg(encoder_out)
-    #print("gap shape", gap.shape)
-    # Detaching the monitor gradient from the encoder network
-    head = self.monitor_head(gap.F.detach())
-    #print("headshape", head.shape)
 
     if self.normalize_feature:
       return SparseTensor(

@@ -3,8 +3,6 @@ import numpy as np
 import math
 
 import open3d as o3d
-from lib.eval import find_nn_cpu
-
 
 def make_open3d_point_cloud(xyz, color=None):
   pcd = o3d.geometry.PointCloud()
@@ -114,14 +112,6 @@ def evaluate_feature(pcd0, pcd1, feat0, feat1, trans_gth, search_voxel_size):
             a_min=0.0,
             a_max=1.0))
   return np.mean(dist)
-
-
-def valid_feat_ratio(pcd0, pcd1, feat0, feat1, trans_gth, thresh=0.1):
-  pcd0_copy = copy.deepcopy(pcd0)
-  pcd0_copy.transform(trans_gth)
-  inds = find_nn_cpu(feat0, feat1, return_distance=False)
-  dist = np.sqrt(((np.array(pcd0_copy.points) - np.array(pcd1.points)[inds])**2).sum(1))
-  return np.mean(dist < thresh)
 
 
 def evaluate_feature_3dmatch(pcd0, pcd1, feat0, feat1, trans_gth, inlier_thresh=0.1):

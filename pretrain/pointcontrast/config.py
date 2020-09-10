@@ -21,7 +21,6 @@ trainer_arg = add_argument_group('Trainer')
 trainer_arg.add_argument('--trainer', type=str, default='HardestContrastiveLossTrainer')
 trainer_arg.add_argument('--save_freq_epoch', type=int, default=1)
 trainer_arg.add_argument('--batch_size', type=int, default=4)
-trainer_arg.add_argument('--val_batch_size', type=int, default=1)
 
 # Hard negative mining
 trainer_arg.add_argument('--use_hard_negative', type=str2bool, default=True)
@@ -43,22 +42,10 @@ trainer_arg.add_argument('--rotation_range', type=float, default=360)
 
 # Data loader configs
 trainer_arg.add_argument('--train_phase', type=str, default="train")
-trainer_arg.add_argument('--val_phase', type=str, default="val")
-trainer_arg.add_argument('--test_phase', type=str, default="test")
-
 trainer_arg.add_argument('--stat_freq', type=int, default=40)
-trainer_arg.add_argument('--test_valid', type=str2bool, default=True)
-trainer_arg.add_argument('--val_max_iter', type=int, default=400)
-trainer_arg.add_argument('--val_epoch_freq', type=int, default=1)
-trainer_arg.add_argument('--val_iter_freq', type=int, default=1000)
 trainer_arg.add_argument('--lr_update_freq', type=int, default=1000)
 trainer_arg.add_argument(
     '--positive_pair_search_voxel_size_multiplier', type=float, default=1.5)
-
-trainer_arg.add_argument('--hit_ratio_thresh', type=float, default=0.1)
-trainer_arg.add_argument('--infinite_sampler', action='store_true')
-
-trainer_arg.add_argument('--subset_length', type=int, default=0)
 
 # Triplets
 trainer_arg.add_argument('--triplet_num_pos', type=int, default=256)
@@ -72,8 +59,6 @@ net_arg.add_argument('--model_n_out', type=int, default=32, help='Feature dimens
 net_arg.add_argument('--conv1_kernel_size', type=int, default=3)
 net_arg.add_argument('--normalize_feature', type=str2bool, default=True)
 net_arg.add_argument('--dist_type', type=str, default='L2')
-net_arg.add_argument('--best_val_metric', type=str, default='feat_match_ratio')
-net_arg.add_argument('--cls_head_dim', type=int, default=55, help='Cls monitor head dimension')
 
 # Optimizer arguments
 opt_arg = add_argument_group('Optimizer')
@@ -87,12 +72,9 @@ opt_arg.add_argument('--sgd_dampening', type=float, default=0.1)
 opt_arg.add_argument('--adam_beta1', type=float, default=0.9)
 opt_arg.add_argument('--adam_beta2', type=float, default=0.999)
 opt_arg.add_argument('--weight_decay', type=float, default=1e-4)
-opt_arg.add_argument('--iter_size', type=int, default=1, help='accumulate gradient')
 opt_arg.add_argument('--bn_momentum', type=float, default=0.05)
 opt_arg.add_argument('--exp_gamma', type=float, default=0.99)
 opt_arg.add_argument('--scheduler', type=str, default='ExpLR')
-opt_arg.add_argument(
-    '--icp_cache_path', type=str, default="/home/chrischoy/datasets/FCGF/kitti/icp/")
 
 misc_arg = add_argument_group('Misc')
 misc_arg.add_argument('--use_gpu', type=str2bool, default=True)
@@ -108,9 +90,6 @@ misc_arg.add_argument(
     help='Weights with the same size will be loaded')
 
 misc_arg.add_argument('--train_num_thread', type=int, default=2)
-misc_arg.add_argument('--val_num_thread', type=int, default=1)
-misc_arg.add_argument('--test_num_thread', type=int, default=2)
-misc_arg.add_argument('--fast_validation', type=str2bool, default=False)
 misc_arg.add_argument(
     '--nn_max_n',
     type=int,
@@ -120,15 +99,9 @@ misc_arg.add_argument(
 # NCE related
 misc_arg.add_argument('--nceT', type=float, default=0.07)
 misc_arg.add_argument('--npos', type=int, default=1024)
-misc_arg.add_argument('--nneg', type=int, default=2048)
-misc_arg.add_argument('--use_all_negatives', type=str2bool, default=False)
-misc_arg.add_argument('--use_all_positives', type=str2bool, default=False)
-misc_arg.add_argument('--self_contrast', type=str2bool, default=False)
-misc_arg.add_argument('--no_additional_neg', type=str2bool, default=False)
 
 # TODO(s9xie): all args for scannet training
 misc_arg.add_argument('--num_workers', type=int, default=2)
-misc_arg.add_argument('--num_val_workers', type=int, default=1)
 misc_arg.add_argument('--train_limit_numpoints', type=int, default=0)
 misc_arg.add_argument(
     '--data_aug_color_trans_ratio', type=float, default=0.10, help='Color translation range')
@@ -146,16 +119,10 @@ misc_arg.add_argument(
     help='Saturation translation range, [0, 1]')
 
 misc_arg.add_argument('--cache_data', type=str2bool, default=False)
-misc_arg.add_argument(
-    '--scannet_path',
-    type=str,
-    default='/home/chrischoy/datasets/scannet/scannet_preprocessed',
-    help='Scannet online voxelization dataset root dir')
 
 misc_arg.add_argument('--ignore_label', type=int, default=255)
 misc_arg.add_argument('--return_transformation', type=str2bool, default=False)
 misc_arg.add_argument('--free_rot', type=str2bool, default=True)
-misc_arg.add_argument('--use_color_feat', type=str2bool, default=True)
 misc_arg.add_argument('--use_random_crop', type=str2bool, default=False)
 misc_arg.add_argument('--crop_factor', type=float, default=1.5)
 misc_arg.add_argument('--crop_min_num_points', type=int, default=5000)
@@ -165,21 +132,7 @@ data_arg = add_argument_group('Data')
 data_arg.add_argument('--dataset', type=str, default='ThreeDMatchPairDataset')
 data_arg.add_argument('--voxel_size', type=float, default=0.025)
 data_arg.add_argument(
-    '--threed_match_dir', type=str, default="/private/home/s9xie/3d_ssl/FCGF/data/threedmatch/")
-data_arg.add_argument(
     '--scannet_match_dir', type=str, default="/private/home/jgu/data/3d_ssl2/ScannetScan/data_f25/overlap-30.txt")
-data_arg.add_argument(
-    '--shapenet_dir', type=str, default="/private/home/s9xie/3d_ssl/pointnet2/data/ShapeNetCore.v2/shrec")
-data_arg.add_argument('--shapenet_npoints', type=int, default=2048)
-data_arg.add_argument(
-    '--kitti_root', type=str, default="/home/chrischoy/datasets/FCGF/kitti/")
-data_arg.add_argument(
-    '--kitti_max_time_diff',
-    type=int,
-    default=3,
-    help='max time difference between pairs (non inclusive)')
-data_arg.add_argument('--kitti_date', type=str, default='2011_09_26')
-
 
 def get_config():
   args = parser.parse_args()
