@@ -4,8 +4,6 @@ import torch.distributed as dist
 
 import math
 
-#TODO(s9xie): rename
-
 class InfSampler(Sampler):
   """Samples elements randomly, without replacement.
     Arguments:

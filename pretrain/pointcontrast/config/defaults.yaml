@@ -1,0 +1,122 @@
+defaults:
+  - hydra/launcher: submitit_slurm
+  - hydra/hydra_logging: colorlog
+
+trainer:
+  trainer: HardestContrastiveLossTrainer
+  batch_size: 4
+
+  # Hard negative mining
+  use_hard_negative: True
+  hard_negative_sample_ratio: 0.05
+  hard_negative_max_num: 3000
+  num_pos_per_batch: 1024
+  num_hn_samples_per_batch: 256
+
+  # Metric learning loss
+  neg_thresh: 1.4
+  pos_thresh: 0.1
+
+  # Data augmentation
+  use_random_scale: False
+  min_scale: 0.8
+  max_scale: 1.2
+  use_random_rotation: True
+  rotation_range: 360
+
+  # Data loader configs
+  stat_freq: 40
+  test_valid: True
+  lr_update_freq: 1000
+  positive_pair_search_voxel_size_multiplier: 1.5
+
+  hit_ratio_thresh: 0.1
+
+# Network specific configurations
+net:
+  model: ResUNetBN2C
+  model_n_out: 32 #Feature dimension
+  conv1_kernel_size: 3
+  normalize_feature: True
+  dist_type: L2
+  best_val_metric: feat_match_ratio
+  cls_head_dim: 55
+
+# Optimizer arguments
+opt:
+  optimizer: SGD
+  max_iter: 300000
+  lr: 1e-1
+  momentum: 0.8
+  sgd_momentum: 0.9
+  sgd_dampening: 0.1
+  adam_beta1: 0.9
+  adam_beta2: 0.999
+  weight_decay: 1e-4
+  iter_size: 1 # accumulate gradient
+  bn_momentum: 0.05
+  exp_gamma: 0.99
+  scheduler: ExpLR
+
+misc:
+  out_dir: /checkpoint/jihou/checkpoints/default
+  use_gpu: True
+  num_gpus: 1
+  weight: 
+  config: 
+  lenient_weight_loading: False # Weights with the same size will be loaded
+
+  train_num_thread: 2
+  val_num_thread: 1
+  test_num_thread: 2
+  fast_validation: False
+  nn_max_n: 500 # The maximum number of features to find nearest neighbors in batch
+
+  # NCE related
+  nceT: 0.07
+  npos: 4096
+
+  # TODO(s9xie): all args for scannet training
+  num_workers: 2
+  num_val_workers: 1
+  train_limit_numpoints: 0
+  data_aug_color_trans_ratio: 0.10 # Color translation range
+  data_aug_color_jitter_std: 0.05 # STD of color jitter
+  normalize_color: True
+  data_aug_scale_min: 0.9
+  data_aug_scale_max: 1.1
+  data_aug_hue_max: 0.5 # Hue translation range. [0, 1]
+  data_aug_saturation_max: 0.20 #Saturation translation range, [0, 1]
+
+  cache_data: False
+
+  return_transformation: False
+  free_rot: True
+  use_color_feat: True
+  use_random_crop: False
+  crop_factor: 1.5
+  crop_min_num_points: 5000
+
+# Dataset specific configurations
+data:
+  dataset: ScanNetMatchPairDataset
+  voxel_size: 0.025
+  scannet_match_dir: /private/home/jgu/data/3d_ssl2/ScannetScan/data_f25/overlap-30.txt
+
+hydra:
+  run:
+    dir: ${misc.out_dir}
+  sweep:
+    dir: ${misc.out_dir}
+  launcher:
+    partition: dev
+    submitit_folder: ${hydra.sweep.dir}/.submitit/%j
+    name: ${hydra.job.name}
+    timeout_min: 3600
+    cpus_per_task: 80
+    gpus_per_node: 8
+    tasks_per_node: 1
+    mem_gb: 128
+    nodes: 1
+    constraint: volta32gb
+    max_num_timeout: 3

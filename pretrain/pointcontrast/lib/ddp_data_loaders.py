@@ -126,15 +126,15 @@ class PairDataset(torch.utils.data.Dataset):
     self.files = []
     self.data_objects = []
     self.transform = transform
-    self.voxel_size = config.voxel_size
+    self.voxel_size = config.data.voxel_size
     self.matching_search_voxel_size = \
-        config.voxel_size * config.positive_pair_search_voxel_size_multiplier
+        config.data.voxel_size * config.trainer.positive_pair_search_voxel_size_multiplier
 
     self.random_scale = random_scale
-    self.min_scale = config.min_scale
-    self.max_scale = config.max_scale
+    self.min_scale = config.trainer.min_scale
+    self.max_scale = config.trainer.max_scale
     self.random_rotation = random_rotation
-    self.rotation_range = config.rotation_range
+    self.rotation_range = config.trainer.rotation_range
     self.randg = np.random.RandomState()
     if manual_seed:
       self.reset_seed()
@@ -166,7 +166,7 @@ class IndoorPairDataset(PairDataset):
                config=None):
     PairDataset.__init__(self, phase, transform, random_rotation, random_scale,
                          manual_seed, config)
-    self.root = root = config.threed_match_dir
+    self.root = root = config.data.threed_match_dir
     logging.info(f"Loading the subset {phase} from {root}")
 
     subset_names = open(self.DATA_FILES[phase]).read().split()
@@ -224,7 +224,6 @@ class IndoorPairDataset(PairDataset):
     pcd1.points = o3d.utility.Vector3dVector(np.array(pcd1.points)[sel1])
     # Get matches
     matches = get_matching_indices(pcd0, pcd1, trans, matching_search_voxel_size)
-    # print(len(matches))
     # Get features
     npts0 = len(pcd0.colors)
     npts1 = len(pcd1.colors)
@@ -243,7 +242,6 @@ class IndoorPairDataset(PairDataset):
 
     coords0 = np.floor(xyz0 / self.voxel_size)
     coords1 = np.floor(xyz1 / self.voxel_size)
-    # print("after_voxliaze: ", coords0.shape)
 
     if self.transform:
       coords0, feats0 = self.transform(coords0, feats0)
@@ -265,13 +263,9 @@ class ScanNetIndoorPairDataset(PairDataset):
                config=None):
     PairDataset.__init__(self, phase, transform, random_rotation, random_scale,
                          manual_seed, config)
-    if phase == "train":
-        self.root_filelist = root = config.scannet_match_dir
-        self.root = '/'
-    elif phase == "val":
-        self.root = root = config.threed_match_dir
+    self.root_filelist = root = config.data.scannet_match_dir
+    self.root = '/'
     logging.info(f"Loading the subset {phase} from {root}")
-    print("[PHASE]: ##########", phase) 
     if phase == "train":
        fname_txt = self.root_filelist
        with open(fname_txt) as f:
@@ -279,27 +273,6 @@ class ScanNetIndoorPairDataset(PairDataset):
        fnames = [x.strip().split() for x in content]
        for fname in fnames:
          self.files.append([fname[0], fname[1]])
-       
-       print("pretraining dataset size:", len(self.files))
-       if config.subset_length > 0:
-           self.files = random.sample(self.files, config.subset_length)
-           print("Using pretraining dataset subset size:", len(self.files))
-       else:
-           print("Using all pretraining dataset size:", len(self.files))
-
-    elif phase == "val":
-        # reuse 3dmatch data
-        subset_names = open(self.DATA_FILES[phase]).read().split()
-        for name in subset_names:
-          fname = name + "*%.2f.txt" % self.OVERLAP_RATIO
-          fnames_txt = glob.glob(root + "/" + fname)
-          assert len(fnames_txt) > 0, f"Make sure that the path {root} has data {fname}"
-          for fname_txt in fnames_txt:
-            with open(fname_txt) as f:
-              content = f.readlines()
-            fnames = [x.strip().split() for x in content]
-            for fname in fnames:
-              self.files.append([fname[0], fname[1]])
     else:
         raise NotImplementedError
 
@@ -347,7 +320,6 @@ class ScanNetIndoorPairDataset(PairDataset):
     pcd1.points = o3d.utility.Vector3dVector(np.array(pcd1.points)[sel1])
     # Get matches
     matches = get_matching_indices(pcd0, pcd1, trans, matching_search_voxel_size)
-    # print(len(matches))
     # Get features
     npts0 = len(pcd0.colors)
     npts1 = len(pcd1.colors)
@@ -366,7 +338,6 @@ class ScanNetIndoorPairDataset(PairDataset):
 
     coords0 = np.floor(xyz0 / self.voxel_size)
     coords1 = np.floor(xyz1 / self.voxel_size)
-    # print("after_voxliaze: ", coords0.shape)
 
     if self.transform:
       coords0, feats0 = self.transform(coords0, feats0)
@@ -392,19 +363,11 @@ class ScanNetHardIndoorPairDataset(PairDataset):
                config=None):
     PairDataset.__init__(self, phase, transform, random_rotation, random_scale,
                          manual_seed, config)
-    if phase == "train":
-        self.root_filelist = root = config.scannet_match_dir
-        self.root = '/'
-    elif phase == "val":
-        self.root = root = config.threed_match_dir
-    logging.info(f"Loading the subset {phase} from {root}")
-    print("[PHASE]: ##########", phase) 
+    self.root_filelist = root = config.data.scannet_match_dir
+    self.root = '/'
     
     self.scale_range = (0.8, 1.2)#self.SCALE_AUGMENTATION_BOUND
-    print("scale_range", self.scale_range)
-    
     self.translation_range = (-0.2, 0.2) #self.TRANSLATION_AUGMENTATION_RATIO_BOUND
-    print("translation_range", self.translation_range)
     
     if phase == "train":
        fname_txt = self.root_filelist
@@ -413,21 +376,6 @@ class ScanNetHardIndoorPairDataset(PairDataset):
        fnames = [x.strip().split() for x in content]
        for fname in fnames:
          self.files.append([fname[0], fname[1]])
-       print("pretraining dataset size:", len(self.files))
-
-    elif phase == "val":
-        # reuse 3dmatch data
-        subset_names = open(self.DATA_FILES[phase]).read().split()
-        for name in subset_names:
-          fname = name + "*%.2f.txt" % self.OVERLAP_RATIO
-          fnames_txt = glob.glob(root + "/" + fname)
-          assert len(fnames_txt) > 0, f"Make sure that the path {root} has data {fname}"
-          for fname_txt in fnames_txt:
-            with open(fname_txt) as f:
-              content = f.readlines()
-            fnames = [x.strip().split() for x in content]
-            for fname in fnames:
-              self.files.append([fname[0], fname[1]])
     else:
         raise NotImplementedError
 
@@ -477,7 +425,6 @@ class ScanNetHardIndoorPairDataset(PairDataset):
     pcd1.points = o3d.utility.Vector3dVector(np.array(pcd1.points)[sel1])
     # Get matches
     matches = get_matching_indices(pcd0, pcd1, trans, matching_search_voxel_size)
-    # print(len(matches))
     # Get features
     npts0 = len(pcd0.colors)
     npts1 = len(pcd1.colors)
@@ -490,22 +437,16 @@ class ScanNetHardIndoorPairDataset(PairDataset):
     feats0 = np.hstack(feats_train0)
     feats1 = np.hstack(feats_train1)
 
-    # Get coords
     xyz0 = np.array(pcd0.points)
     xyz1 = np.array(pcd1.points)
 
     coords0 = np.floor(xyz0 / self.voxel_size)
     coords1 = np.floor(xyz1 / self.voxel_size)
-    # print("after_voxliaze: ", coords0.shape)
 
     if self.transform:
       coords0, feats0 = self.transform(coords0, feats0)
       coords1, feats1 = self.transform(coords1, feats1)
 
-    # NB(s9xie): xyz are coordinates in the original system;
-    # coords are sparse conv grid coords. (subject to a scaling factor)
-    # coords0 -> sinput0_C
-    # trans is T0*T1^-1
     return (xyz0, xyz1, coords0, coords1, feats0, feats1, matches, trans)
 
 
@@ -513,54 +454,47 @@ class ScanNetMatchPairDataset(ScanNetIndoorPairDataset):
   OVERLAP_RATIO = 0.3
   DATA_FILES = {
       'train': './config/train_scannet.txt',
-      'val': './config/val_3dmatch.txt',
   }
+
 
 class ScanNetHardMatchPairDataset(ScanNetHardIndoorPairDataset):
   OVERLAP_RATIO = 0.3
   DATA_FILES = {
       'train': './config/train_scannet.txt',
-      'val': './config/val_3dmatch.txt',
   }
+
 
 ALL_DATASETS = [ScanNetMatchPairDataset, ScanNetHardMatchPairDataset]
 dataset_str_mapping = {d.__name__: d for d in ALL_DATASETS}
 
 
-def make_data_loader(config, phase, batch_size, num_threads=0, shuffle=None, inf_sample=False):
-  assert phase in ['train', 'trainval', 'val', 'test']
-  if shuffle is None:
-    shuffle = phase != 'test'
+def make_data_loader(config, batch_size, num_threads=0):
 
-  if config.dataset not in dataset_str_mapping.keys():
-    logging.error(f'Dataset {config.dataset}, does not exists in ' +
+  if config.data.dataset not in dataset_str_mapping.keys():
+    logging.error(f'Dataset {config.data.dataset}, does not exists in ' +
                   ', '.join(dataset_str_mapping.keys()))
 
-  Dataset = dataset_str_mapping[config.dataset]
+  Dataset = dataset_str_mapping[config.data.dataset]
 
 
   use_random_scale = True
   use_random_rotation = True
 
   transforms = []
-  if phase in ['train', 'trainval']:
-    use_random_rotation = config.use_random_rotation
-    use_random_scale = config.use_random_scale
-    transforms += [t.Jitter()]
+  use_random_rotation = config.trainer.use_random_rotation
+  use_random_scale = config.trainer.use_random_scale
+  transforms += [t.Jitter()]
 
   dset = Dataset(
-      phase,
+      phase="train",
       transform=t.Compose(transforms),
       random_scale=use_random_scale,
       random_rotation=use_random_rotation,
       config=config)
-  print(dset)
   collate_pair_fn = default_collate_pair_fn
-  
-  print("original batch_size=", batch_size)
-  batch_size = batch_size // config.num_gpus
+  batch_size = batch_size // config.misc.num_gpus
 
-  if config.num_gpus > 1:
+  if config.misc.num_gpus > 1:
     sampler = DistributedInfSampler(dset)
   else:
     sampler = None
@@ -568,7 +502,7 @@ def make_data_loader(config, phase, batch_size, num_threads=0, shuffle=None, inf
   loader = torch.utils.data.DataLoader(
       dset,
       batch_size=batch_size,
-      shuffle=False if sampler else shuffle,
+      shuffle=False if sampler else True,
       num_workers=num_threads,
       collate_fn=collate_pair_fn,
       pin_memory=False,

@@ -122,7 +122,6 @@ class ResNetBaseEncoder(nn.Module):
     
 
     def forward(self, x):
-        # print(x.F.shape)
 
         x = self.conv1(x)
         x = self.bn1(x)

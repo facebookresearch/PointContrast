@@ -28,12 +28,12 @@ class Res16UNetBase(ResNetBase):
                config,
                D=3):
     super(Res16UNetBase, self).__init__(in_channels, out_channels, config, D)
-    self.normalize_feature = config.normalize_feature
+    self.normalize_feature = config.net.normalize_feature
 
   def network_initialization(self, in_channels, out_channels, config, D):
     # Setup net_metadata
     dilations = self.DILATIONS
-    bn_momentum = config.bn_momentum
+    bn_momentum = config.opt.bn_momentum
 
     def space_n_time_m(n, m):
       return n if D == 3 else [n, n, n, m]
@@ -43,11 +43,10 @@ class Res16UNetBase(ResNetBase):
 
     # Output of the first conv concated to conv6
     self.inplanes = self.INIT_DIM
-    print("in_channels", in_channels)
     self.conv0p1s1 = conv(
         in_channels,
         self.inplanes,
-        kernel_size=space_n_time_m(config.conv1_kernel_size, 1),
+        kernel_size=space_n_time_m(config.net.conv1_kernel_size, 1),
         stride=1,
         dilation=1,
         conv_type=self.NON_BLOCK_CONV_TYPE,
@@ -294,7 +293,7 @@ class MonitorRes16UNetBase(ResNetBase):
   def network_initialization(self, in_channels, out_channels, config, D):
     # Setup net_metadata
     dilations = self.DILATIONS
-    bn_momentum = config.bn_momentum
+    bn_momentum = config.opt.bn_momentum
 
     def space_n_time_m(n, m):
       return n if D == 3 else [n, n, n, m]

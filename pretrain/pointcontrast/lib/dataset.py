@@ -617,7 +617,6 @@ class VoxelizationPairDataset(VoxelizationDatasetBase):
     self.randg.seed(seed)
 
   def convert_mat2cfl(self, mat):
-    # Generally, xyz,rgb,label
     return mat[:, :3], mat[:, 3:-1], mat[:, -1]
 
   def __getitem__(self, index):
@@ -626,30 +625,11 @@ class VoxelizationPairDataset(VoxelizationDatasetBase):
     pcd_orig.colors = o3d.utility.Vector3dVector(feats_orig)
     pcd_orig.points = o3d.utility.Vector3dVector(np.array(pcd_orig.points))
 
-    # Downsample the pointcloud with finer voxel size before transformation for memory and speed
-    # NB(s9xie): we might need this later
-    # if self.PREVOXELIZE_VOXEL_SIZE is not None:
-    #   inds = ME.utils.sparse_quantize(
-    #       pointcloud[:, :3] / self.PREVOXELIZE_VOXEL_SIZE, return_index=True)
-    #   pointcloud = pointcloud[inds]
-
-    # # Prevoxel transformations
-    # if self.prevoxel_transform is not None:
-    #     pointcloud = self.prevoxel_transform(pointcloud)
-    
     coords_0, feats_0, labels_0, T0 = self.voxelizer.voxelize(
         xyz_orig, feats_orig, labels_orig, center=center, free_rot=self.free_rot)
     coords_1, feats_1, labels_1, T1 = self.voxelizer.voxelize(
         xyz_orig, feats_orig, labels_orig, center=center, free_rot=self.free_rot)
     
-    # pointcloud: (162330, 7)
-    # xyz: (162330, 3)
-    # coords: (108878, 3)
-    # feats: (108878, 3)
-    # labels: (108878,)
-    # map labels not used for evaluation to ignore_label
-    # NB(s9xie): default target_transform is none, 
-    # input transform is all data augmentations and ignore labels is not none
     if self.input_transform is not None:
       coords_0, feats_0, labels_0 = self.input_transform(coords_0, feats_0, labels_0)
       coords_1, feats_1, labels_1 = self.input_transform(coords_1, feats_1, labels_1)
@@ -673,31 +653,7 @@ class VoxelizationPairDataset(VoxelizationDatasetBase):
     pcd0.points = o3d.utility.Vector3dVector(np.array(pcd0.points))
     pcd1.points = o3d.utility.Vector3dVector(np.array(pcd1.points))
     
-    
-    ## DEBUGGING
-    DEBUG = False
-    if DEBUG:
-        pcd0.colors = o3d.utility.Vector3dVector(feats_0 / 255.0)
-        pcd1.colors = o3d.utility.Vector3dVector(feats_1 / 255.0)
-
-        pcd0.points = o3d.utility.Vector3dVector(np.array(pcd0.points))
-        pcd1.points = o3d.utility.Vector3dVector(np.array(pcd1.points))
-
-        o3d.io.write_point_cloud("pcd_orig.pcd", pcd_orig)
-        o3d.io.write_point_cloud("pcd0.pcd", pcd0)
-        o3d.io.write_point_cloud("pcd1.pcd", pcd1)
-        import copy
-        pcd0_copy = copy.deepcopy(pcd0)
-        pcd0_copy.transform(trans)
-        np.save("T0.npy", T0)
-        np.save("T1.npy", T1)
-        np.save("trans.npy", trans)
-        o3d.io.write_point_cloud("pcd0_trans.pcd", pcd0_copy)
-        assert 1==2
-        ## DEBUGGING
-
     matches = get_matching_indices_on_voxels(pcd0, pcd1, trans, voxel_size, matching_search_voxel_size)
-    # print(len(matches))
     # Get features
     if self.use_color_feat:
       feats0 = pcd0.colors
@@ -711,97 +667,4 @@ class VoxelizationPairDataset(VoxelizationDatasetBase):
       feats0 = np.hstack(feats_train0)
       feats1 = np.hstack(feats_train1)
 
-    # we might need to apply it here as well since this is done for two
-    # if self.transform:
-    #   coords_0, feats_0 = self.transform(coords0, feats0)
-    #   coords_1, feats_1 = self.transform(coords1, feats1)
-
     return (coords_0, coords_1, feats_0, feats_1, matches, trans, labels_0)
-
-def initialize_data_loader(DatasetClass,
-                           config,
-                           phase,
-                           num_workers,
-                           shuffle,
-                           repeat,
-                           augment_data,
-                           batch_size,
-                           limit_numpoints,
-                           input_transform=None,
-                           target_transform=None):
-  if isinstance(phase, str):
-    phase = str2datasetphase_type(phase)
-
-  # collate_fn = tsc.cfl_collate_fn_factory(limit_numpoints)
-  # TODO(s9xie): does not support truncated batch now
-  # collate_fn = tsc.cfl_collate_fn_factory_shapenet(limit_numpoints)
-  DatasetClassName = DatasetClass.__name__
-  if "Match" in DatasetClassName or "ShapeNet" in DatasetClassName:
-    collate_fn = tsc.match_cfl_collate_fn_factory(limit_numpoints)
-  else:
-    collate_fn = tsc.cfl_collate_fn_factory(limit_numpoints)
-  prevoxel_transforms = None
-  # prevoxel_transform_train = []
-  # if augment_data:
-  #   prevoxel_transform_train.append(tsc.ElasticDistortion(DatasetClass.ELASTIC_DISTORT_PARAMS))
-
-  # if len(prevoxel_transform_train) > 0:
-  #   prevoxel_transforms = t.Compose(prevoxel_transform_train)
-  # else:
-  #   prevoxel_transforms = None
-
-  input_transforms = []
-  # # NB(s9xie): default input transform is none
-  # if input_transform is not None:
-  #   input_transforms += input_transform
-  if "Match" or "ShapeNet" in DatasetClassName:
-    print("This is a ShapeNet dataset, no color available, do not add color agumentations")
-    if augment_data:
-      input_transforms += [
-          # tsc.RandomHorizontalFlip(DatasetClass.ROTATION_AXIS, DatasetClass.IS_TEMPORAL),
-          tsc.ChromaticJitter(config.data_aug_color_jitter_std),
-      ]
-  else:
-    print("This is NOT a ShapeNet dataset, add color agumentations")
-    if augment_data:
-      input_transforms += [
-          # tsc.RandomHorizontalFlip(DatasetClass.ROTATION_AXIS, DatasetClass.IS_TEMPORAL),
-          tsc.ChromaticAutoContrast(),
-          tsc.ChromaticTranslation(config.data_aug_color_trans_ratio),
-          tsc.ChromaticJitter(config.data_aug_color_jitter_std),
-          # t.HueSaturationTranslation(config.data_aug_hue_max, config.data_aug_saturation_max),
-      ]
-
-  if len(input_transforms) > 0:
-    input_transforms = tsc.Compose(input_transforms)
-  else:
-    input_transforms = None
-  dataset = DatasetClass(
-      config,
-      prevoxel_transform=prevoxel_transforms,
-      input_transform=input_transforms,
-      target_transform=target_transform,
-      cache=config.cache_data,
-      augment_data=augment_data,
-      phase=phase)
-
-  print("original batch_size=", batch_size)
-  batch_size = batch_size // config.num_gpus
-  data_args = {
-      'dataset': dataset,
-      'num_workers': num_workers,
-      'batch_size': batch_size,
-      'collate_fn': collate_fn,
-  }
-  
-  if repeat:
-    if config.num_gpus > 1:
-      data_args['sampler'] = torch.utils.data.distributed.DistributedSampler(dataset)
-    else:
-      data_args['sampler'] = InfSampler(dataset, shuffle)
-  else:
-    data_args['shuffle'] = shuffle
-
-  data_loader = DataLoader(**data_args)
-
-  return data_loader

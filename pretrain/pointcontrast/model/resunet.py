@@ -25,7 +25,7 @@ class ResUNetBase(ResNetBase):
   def network_initialization(self, in_channels, out_channels, config, D):
     # Setup net_metadata
     dilations = self.DILATIONS
-    bn_momentum = config.bn_momentum
+    bn_momentum = config.opt.bn_momentum
 
     def space_n_time_m(n, m):
       return n if D == 3 else [n, n, n, m]

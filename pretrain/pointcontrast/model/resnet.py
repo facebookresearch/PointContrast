@@ -34,7 +34,7 @@ class ResNetBase(Model):
       self.OUT_PIXEL_DIST = space_n_time_m(self.OUT_PIXEL_DIST, 1)
 
     dilations = config.dilations
-    bn_momentum = config.bn_momentum
+    bn_momentum = config.opt.bn_momentum
     self.inplanes = self.INIT_DIM
     self.conv1 = conv(
         in_channels,

@@ -41,16 +41,10 @@ trainer_arg.add_argument('--use_random_rotation', type=str2bool, default=True)
 trainer_arg.add_argument('--rotation_range', type=float, default=360)
 
 # Data loader configs
-trainer_arg.add_argument('--train_phase', type=str, default="train")
 trainer_arg.add_argument('--stat_freq', type=int, default=40)
 trainer_arg.add_argument('--lr_update_freq', type=int, default=1000)
 trainer_arg.add_argument(
     '--positive_pair_search_voxel_size_multiplier', type=float, default=1.5)
-
-# Triplets
-trainer_arg.add_argument('--triplet_num_pos', type=int, default=256)
-trainer_arg.add_argument('--triplet_num_hn', type=int, default=512)
-trainer_arg.add_argument('--triplet_num_rand', type=int, default=1024)
 
 # Network specific configurations
 net_arg = add_argument_group('Network')
