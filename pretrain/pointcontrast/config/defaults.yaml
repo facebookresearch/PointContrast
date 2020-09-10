@@ -120,3 +120,4 @@ hydra:
     nodes: 1
     constraint: volta32gb
     max_num_timeout: 3
+    signal_delay_s: 300

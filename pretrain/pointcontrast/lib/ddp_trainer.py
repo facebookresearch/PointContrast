@@ -251,7 +251,7 @@ class HardestContrastiveLossTrainer(ContrastiveLossTrainer):
         self.writer.add_scalar('train/pos_loss', batch_pos_loss, curr_iter)
         self.writer.add_scalar('train/neg_loss', batch_neg_loss, curr_iter)
         logging.info(
-            "Train Epoch: {} [{}/{}], Current Loss: {:.3e}"
+            "Train Epoch: {:.3f} [{}/{}], Current Loss: {:.3e}"
             .format(epoch, curr_iter,
                     len(self.data_loader), batch_loss) +
             "\tData time: {:.4f}, Train time: {:.4f}, Iter time: {:.4f}, LR: {}".format(
