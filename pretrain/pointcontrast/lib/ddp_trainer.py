@@ -398,8 +398,6 @@ class PointNCELossTrainer(ContrastiveLossTrainer):
         sampled_inds = np.random.choice(q.shape[0], self.npos, replace=False)
         q = q[sampled_inds]
         k = k[sampled_inds]
-    else:
-        raise ValueError('npos too large.')
     
     npos = q.shape[0] 
 
