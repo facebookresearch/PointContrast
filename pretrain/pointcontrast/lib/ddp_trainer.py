@@ -285,8 +285,8 @@ class HardestContrastiveLossTrainer(ContrastiveLossTrainer):
         F0,
         F1,
         pos_pairs,
-        num_pos=self.config.num_pos_per_batch * self.batch_size,
-        num_hn_samples=self.config.num_hn_samples_per_batch *
+        num_pos=self.config.trainer.num_pos_per_batch * self.batch_size,
+        num_hn_samples=self.config.trainer.num_hn_samples_per_batch *
         self.batch_size)
 
     loss = pos_loss + neg_loss
