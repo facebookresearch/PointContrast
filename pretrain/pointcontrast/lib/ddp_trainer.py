@@ -98,8 +98,6 @@ class ContrastiveLossTrainer:
     self.batch_size = data_loader.batch_size
     self.data_loader = data_loader
 
-    self.log_step = int(np.sqrt(self.batch_size))
-
     self.neg_thresh = config.trainer.neg_thresh
     self.pos_thresh = config.trainer.pos_thresh
 
