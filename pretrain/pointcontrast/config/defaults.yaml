@@ -109,7 +109,7 @@ hydra:
     cpus_per_task: 80
     gpus_per_node: 8
     tasks_per_node: 1
-    mem_gb: 128
+    mem_gb: 480
     nodes: 1
     constraint: volta32gb
     max_num_timeout: 3
