@@ -5,6 +5,7 @@ import errno
 import time
 
 import numpy as np
+from omegaconf import OmegaConf
 import torch
 
 from lib.pc_utils import colorize_pointcloud, save_point_cloud
@@ -74,35 +75,38 @@ def checkpoint(model, optimizer, epoch, iteration, config, best_val=None, best_v
   if get_world_size() > 1 and get_rank() > 0:
     return
 
-  mkdir_p(config.log_dir)
-  if config.overwrite_weights:
+  mkdir_p('weights')
+  if config.train.overwrite_weights:
     if postfix is not None:
-      filename = f"checkpoint_{config.wrapper_type}{config.model}{postfix}.pth"
+      filename = f"checkpoint_{config.net.wrapper_type}{config.net.model}{postfix}.pth"
     else:
-      filename = f"checkpoint_{config.wrapper_type}{config.model}.pth"
+      filename = f"checkpoint_{config.net.wrapper_type}{config.net.model}.pth"
   else:
-    filename = f"checkpoint_{config.wrapper_type}{config.model}_iter_{iteration}.pth"
-  checkpoint_file = config.log_dir + '/' + filename
+    filename = f"checkpoint_{config.net.wrapper_type}{config.net.model}_iter_{iteration}.pth"
+  checkpoint_file = 'weights/' + filename
 
   _model = model.module if get_world_size() > 1 else model
   state = {
       'iteration': iteration,
       'epoch': epoch,
-      'arch': config.model,
+      'arch': config.net.model,
       'state_dict': _model.state_dict(),
       'optimizer': optimizer.state_dict()
   }
   if best_val is not None:
     state['best_val'] = best_val
     state['best_val_iter'] = best_val_iter
-  json.dump(vars(config), open(config.log_dir + '/config.json', 'w'), indent=4)
+
+  # save config
+  OmegaConf.save(config, 'config.yaml')
+
   torch.save(state, checkpoint_file)
   logging.info(f"Checkpoint saved to {checkpoint_file}")
   # Delete symlink if it exists
-  if os.path.exists(f'{config.log_dir}/weights.pth'):
-    os.remove(f'{config.log_dir}/weights.pth')
+  if os.path.exists('weights/weights.pth'):
+    os.remove('weights/weights.pth')
   # Create symlink
-  os.system(f'cd {config.log_dir}; ln -s {filename} weights.pth')
+  os.system('ln -s {} weights/weights.pth'.format(filename))
 
 
 def precision_at_one(pred, target, ignore_label=255):
@@ -351,23 +355,23 @@ def visualize_results(coords, input, target, upsampled_pred, config, iteration):
   # Unwrap file index if tested with rotation.
   file_iter = iteration
   if config.test_rotation >= 1:
-    file_iter = iteration // config.test_rotation
+    file_iter = iteration // config.test.test_rotation
   # Create directory to save visualization results.
-  os.makedirs(config.visualize_path, exist_ok=True)
+  os.makedirs(config.test.visualize_path, exist_ok=True)
   # Label visualization in RGB.
   xyzlabel = colorize_pointcloud(input_xyz[target_pred], upsampled_pred[target_pred])
   xyzlabel = np.vstack((xyzlabel, ptc_nonpred))
   filename = '_'.join([config.dataset, config.model, 'pred', '%04d.ply' % file_iter])
-  save_point_cloud(xyzlabel, os.path.join(config.visualize_path, filename), verbose=False)
+  save_point_cloud(xyzlabel, os.path.join(config.test.visualize_path, filename), verbose=False)
   # RGB input values visualization.
   xyzrgb = np.hstack((input_xyz[target_batch], input[:, :3].cpu().numpy()[target_batch]))
   filename = '_'.join([config.dataset, config.model, 'rgb', '%04d.ply' % file_iter])
-  save_point_cloud(xyzrgb, os.path.join(config.visualize_path, filename), verbose=False)
+  save_point_cloud(xyzrgb, os.path.join(config.test.visualize_path, filename), verbose=False)
   # Ground-truth visualization in RGB.
   xyzgt = colorize_pointcloud(input_xyz[target_pred], target.numpy()[target_pred])
   xyzgt = np.vstack((xyzgt, ptc_nonpred))
   filename = '_'.join([config.dataset, config.model, 'gt', '%04d.ply' % file_iter])
-  save_point_cloud(xyzgt, os.path.join(config.visualize_path, filename), verbose=False)
+  save_point_cloud(xyzgt, os.path.join(config.test.visualize_path, filename), verbose=False)
 
 
 def permute_pointcloud(input_coords, pointcloud, transformation, label_map,

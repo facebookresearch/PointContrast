@@ -6,7 +6,7 @@ set -e
 
 set -o pipefail
 
-SAVEPATH=/checkpoint/s9xie/space/3d_ssl2
+SAVEPATH=/checkpoint/jihou/space/debug
 DATAPATH=${3:-"/private/home/s9xie/data/3d_ssl2/Stanford3D/"}
 # PRETRAIN="/checkpoint/s9xie/fcgf_logs/FCGF_-default/2019-11-18_18-14-50/checkpoint.pth"
 # PRETRAIN="/checkpoint/s9xie/pointcontrast_scannet_logs/POINTCONTRAST_SCN_-default/2020-01-29_17-03-45/checkpoint.pth"
@@ -17,7 +17,9 @@ DATAPATH=${3:-"/private/home/s9xie/data/3d_ssl2/Stanford3D/"}
 # PRETRAIN="/checkpoint/s9xie/pointcontrast_scannet_logs/POINTCONTRAST_SCN_-default/2020-02-10_20-04-28/checkpoint_14.pth"
 # PRETRAIN="/checkpoint/s9xie/pointcontrast_scannet_logs/POINTCONTRAST_SCN_-default/2020-02-11_00-28-12/checkpoint_33.pth"
 # PRETRAIN="/checkpoint/s9xie/ddp_pointcontrast_scannet_logs/POINTCONTRAST_SCN_-default/2020-02-12_21-10-39/checkpoint.pth"
-# LOADFILTER="all_bn"
+LOADFILTER="all_bn"
+
+export PRETRAIN="/checkpoint/s9xie/ji_exps/scannet_nce_20200909/6/weights/checkpoint_20000.pth"
 
 MODEL=Res16UNet34C
 # MODEL=ResUNetBN2C

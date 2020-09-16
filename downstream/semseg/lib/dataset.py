@@ -351,10 +351,10 @@ class TemporalVoxelizationDataset(VoxelizationDataset):
         break
 
     numseq = self.temporal_numseq
-    if self.augment_data and self.config.temporal_rand_numseq:
+    if self.augment_data and self.config.data.temporal_rand_numseq:
       numseq = random.randrange(1, self.temporal_numseq + 1)
     dilations = [self.temporal_dilation for i in range(numseq - 1)]
-    if self.augment_data and self.config.temporal_rand_dilation:
+    if self.augment_data and self.config.data.temporal_rand_dilation:
       dilations = [random.randrange(1, self.temporal_dilation + 1) for i in range(numseq - 1)]
     files = [self.data_paths[seq_idx][index + sum(dilations[:i])] for i in range(numseq)]
 
@@ -429,7 +429,7 @@ def initialize_data_loader(DatasetClass,
   if isinstance(phase, str):
     phase = str2datasetphase_type(phase)
 
-  if config.return_transformation:
+  if config.data.return_transformation:
     collate_fn = t.cflt_collate_fn_factory(limit_numpoints)
   else:
     collate_fn = t.cfl_collate_fn_factory(limit_numpoints)
@@ -452,8 +452,8 @@ def initialize_data_loader(DatasetClass,
         t.RandomDropout(0.2),
         t.RandomHorizontalFlip(DatasetClass.ROTATION_AXIS, DatasetClass.IS_TEMPORAL),
         t.ChromaticAutoContrast(),
-        t.ChromaticTranslation(config.data_aug_color_trans_ratio),
-        t.ChromaticJitter(config.data_aug_color_jitter_std),
+        t.ChromaticTranslation(config.augmentation.data_aug_color_trans_ratio),
+        t.ChromaticJitter(config.augmentation.data_aug_color_jitter_std),
         # t.HueSaturationTranslation(config.data_aug_hue_max, config.data_aug_saturation_max),
     ]
 
@@ -467,7 +467,7 @@ def initialize_data_loader(DatasetClass,
       prevoxel_transform=prevoxel_transforms,
       input_transform=input_transforms,
       target_transform=target_transform,
-      cache=config.cache_data,
+      cache=config.data.cache_data,
       augment_data=augment_data,
       phase=phase)
 

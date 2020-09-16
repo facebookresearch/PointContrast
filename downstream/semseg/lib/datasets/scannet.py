@@ -96,7 +96,7 @@ class ScannetVoxelizationDataset(VoxelizationDataset):
     if isinstance(phase, str):
       phase = str2datasetphase_type(phase)
     # Use cropped rooms for train/val
-    data_root = config.scannet_path
+    data_root = config.data.scannet_path
     if phase not in [DatasetPhase.Train, DatasetPhase.TrainVal]:
       self.CLIP_BOUND = self.TEST_CLIP_BOUND
     data_paths = read_txt(os.path.join('./splits/scannet', self.DATA_PATH_FILE[phase]))
@@ -107,8 +107,8 @@ class ScannetVoxelizationDataset(VoxelizationDataset):
         prevoxel_transform=prevoxel_transform,
         input_transform=input_transform,
         target_transform=target_transform,
-        ignore_label=config.ignore_label,
-        return_transformation=config.return_transformation,
+        ignore_label=config.data.ignore_label,
+        return_transformation=config.data.return_transformation,
         augment_data=augment_data,
         elastic_distortion=elastic_distortion,
         config=config)

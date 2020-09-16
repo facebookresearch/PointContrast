@@ -51,15 +51,15 @@ def average_precision(prob_np, target_np):
   num_class = prob_np.shape[1]
   label = label_binarize(target_np, classes=list(range(num_class)))
   with np.errstate(divide='ignore', invalid='ignore'):
-    return average_precision_score(label, prob_np, None)
+    return average_precision_score(label, prob_np, average=None)
 
 
 def test(model, data_loader, config, transform_data_fn=None, has_gt=True):
-  device = get_torch_device(config.is_cuda)
+  device = get_torch_device(config.misc.is_cuda)
   dataset = data_loader.dataset
   num_labels = dataset.NUM_LABELS
   global_timer, data_timer, iter_timer = Timer(), Timer(), Timer()
-  criterion = nn.CrossEntropyLoss(ignore_index=config.ignore_label)
+  criterion = nn.CrossEntropyLoss(ignore_index=config.data.ignore_label)
   losses, scores, ious = AverageMeter(), AverageMeter(), 0
   aps = np.zeros((0, num_labels))
   hist = np.zeros((num_labels, num_labels))
@@ -77,9 +77,9 @@ def test(model, data_loader, config, transform_data_fn=None, has_gt=True):
   # Clear cache (when run in val mode, cleanup training cache)
   torch.cuda.empty_cache()
 
-  if config.save_prediction or config.test_original_pointcloud:
-    if config.save_prediction:
-      save_pred_dir = config.save_pred_dir
+  if config.test.save_prediction or config.test.test_original_pointcloud:
+    if config.test.save_prediction:
+      save_pred_dir = config.test.save_pred_dir
       os.makedirs(save_pred_dir, exist_ok=True)
     else:
       save_pred_dir = tempfile.mkdtemp()
@@ -90,7 +90,7 @@ def test(model, data_loader, config, transform_data_fn=None, has_gt=True):
   with torch.no_grad():
     for iteration in range(max_iter):
       data_timer.tic()
-      if config.return_transformation:
+      if config.data.return_transformation:
         coords, input, target, transformation = data_iter.next()
       else:
         coords, input, target = data_iter.next()
@@ -100,25 +100,25 @@ def test(model, data_loader, config, transform_data_fn=None, has_gt=True):
       # Preprocess input
       iter_timer.tic()
 
-      if config.wrapper_type != 'None':
+      if config.net.wrapper_type != None:
         color = input[:, :3].int()
-      if config.normalize_color:
+      if config.augmentation.normalize_color:
         input[:, :3] = input[:, :3] / 255. - 0.5
       sinput = SparseTensor(input, coords).to(device)
 
       # Feed forward
-      inputs = (sinput,) if config.wrapper_type == 'None' else (sinput, coords, color)
+      inputs = (sinput,) if config.net.wrapper_type == None else (sinput, coords, color)
       soutput = model(*inputs)
       output = soutput.F
 
       pred = get_prediction(dataset, output, target).int()
       iter_time = iter_timer.toc(False)
 
-      if config.save_prediction or config.test_original_pointcloud:
+      if config.test.save_prediction or config.test.test_original_pointcloud:
         save_predictions(coords, pred, transformation, dataset, config, iteration, save_pred_dir)
 
       if has_gt:
-        if config.evaluate_original_pointcloud:
+        if config.test.evaluate_original_pointcloud:
           raise NotImplementedError('pointcloud')
           output, pred, target = permute_pointcloud(coords, pointcloud, transformation,
                                                     dataset.label_map, output, pred)
@@ -143,7 +143,7 @@ def test(model, data_loader, config, transform_data_fn=None, has_gt=True):
           warnings.simplefilter("ignore", category=RuntimeWarning)
           ap_class = np.nanmean(aps, 0) * 100.
 
-      if iteration % config.test_stat_freq == 0 and iteration > 0:
+      if iteration % config.test.test_stat_freq == 0 and iteration > 0:
         reordered_ious = dataset.reorder_result(ious)
         reordered_ap_class = dataset.reorder_result(ap_class)
         class_names = dataset.get_classnames()
@@ -160,7 +160,7 @@ def test(model, data_loader, config, transform_data_fn=None, has_gt=True):
             reordered_ap_class,
             class_names=class_names)
 
-      if iteration % config.empty_cache_freq == 0:
+      if iteration % config.train.empty_cache_freq == 0:
         # Clear cache
         torch.cuda.empty_cache()
 
@@ -182,7 +182,7 @@ def test(model, data_loader, config, transform_data_fn=None, has_gt=True):
       reordered_ap_class,
       class_names=class_names)
 
-  if config.test_original_pointcloud:
+  if config.test.test_original_pointcloud:
     logging.info('===> Start testing on original pointcloud space.')
     dataset.test_pointcloud(save_pred_dir)
 

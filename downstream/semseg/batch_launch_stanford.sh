@@ -55,44 +55,44 @@
 # 
 # ./scripts/launch_cluster_stanford.sh
 
-export EXP_NAME="reproduce_new_run0_oldcode_043env_batchid_fix"
-export PRETRAIN="/checkpoint/s9xie/ji_exps/scannet_nce_20200909/0/weights/checkpoint_20000.pth"
-
-./scripts/launch_cluster_stanford.sh
-
-export EXP_NAME="reproduce_new_run1_oldcode_043env_batchid_fix"
-export PRETRAIN="/checkpoint/s9xie/ji_exps/scannet_nce_20200909/1/weights/checkpoint_20000.pth"
-
-./scripts/launch_cluster_stanford.sh
-
-export EXP_NAME="reproduce_new_run2_oldcode_043env_batchid_fix"
-export PRETRAIN="/checkpoint/s9xie/ji_exps/scannet_nce_20200909/2/weights/checkpoint_20000.pth"
-
-./scripts/launch_cluster_stanford.sh
-
-export EXP_NAME="reproduce_new_run3_oldcode_043env_batchid_fix"
-export PRETRAIN="/checkpoint/s9xie/ji_exps/scannet_nce_20200909/3/weights/checkpoint_20000.pth"
-
-./scripts/launch_cluster_stanford.sh
-
-export EXP_NAME="reproduce_new_run4_oldcode_043env_batchid_fix"
-export PRETRAIN="/checkpoint/s9xie/ji_exps/scannet_nce_20200909/4/weights/checkpoint_20000.pth"
-
-./scripts/launch_cluster_stanford.sh
-
-export EXP_NAME="reproduce_new_run5_oldcode_043env_batchid_fix"
-export PRETRAIN="/checkpoint/s9xie/ji_exps/scannet_nce_20200909/5/weights/checkpoint_20000.pth"
-
-./scripts/launch_cluster_stanford.sh
+#export EXP_NAME="reproduce_new_run0_oldcode_043env_batchid_fix"
+#export PRETRAIN="/checkpoint/s9xie/ji_exps/scannet_nce_20200909/0/weights/checkpoint_20000.pth"
+#
+#./scripts/launch_cluster_stanford.sh
+#
+#export EXP_NAME="reproduce_new_run1_oldcode_043env_batchid_fix"
+#export PRETRAIN="/checkpoint/s9xie/ji_exps/scannet_nce_20200909/1/weights/checkpoint_20000.pth"
+#
+#./scripts/launch_cluster_stanford.sh
+#
+#export EXP_NAME="reproduce_new_run2_oldcode_043env_batchid_fix"
+#export PRETRAIN="/checkpoint/s9xie/ji_exps/scannet_nce_20200909/2/weights/checkpoint_20000.pth"
+#
+#./scripts/launch_cluster_stanford.sh
+#
+#export EXP_NAME="reproduce_new_run3_oldcode_043env_batchid_fix"
+#export PRETRAIN="/checkpoint/s9xie/ji_exps/scannet_nce_20200909/3/weights/checkpoint_20000.pth"
+#
+#./scripts/launch_cluster_stanford.sh
+#
+#export EXP_NAME="reproduce_new_run4_oldcode_043env_batchid_fix"
+#export PRETRAIN="/checkpoint/s9xie/ji_exps/scannet_nce_20200909/4/weights/checkpoint_20000.pth"
+#
+#./scripts/launch_cluster_stanford.sh
+#
+#export EXP_NAME="reproduce_new_run5_oldcode_043env_batchid_fix"
+#export PRETRAIN="/checkpoint/s9xie/ji_exps/scannet_nce_20200909/5/weights/checkpoint_20000.pth"
+#
+#./scripts/launch_cluster_stanford.sh
 
 export EXP_NAME="reproduce_new_run6_oldcode_043env_batchid_fix"
 export PRETRAIN="/checkpoint/s9xie/ji_exps/scannet_nce_20200909/6/weights/checkpoint_20000.pth"
 
 ./scripts/launch_cluster_stanford.sh
 
-export EXP_NAME="reproduce_new_run7_oldcode_043env_batchid_fix"
-export PRETRAIN="/checkpoint/s9xie/ji_exps/scannet_nce_20200909/7/weights/checkpoint_20000.pth"
-
-./scripts/launch_cluster_stanford.sh
+#export EXP_NAME="reproduce_new_run7_oldcode_043env_batchid_fix"
+#export PRETRAIN="/checkpoint/s9xie/ji_exps/scannet_nce_20200909/7/weights/checkpoint_20000.pth"
+#
+#./scripts/launch_cluster_stanford.sh
 
 

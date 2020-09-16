@@ -118,17 +118,17 @@ class StanfordDataset(StanfordVoxelizationDatasetBase, VoxelizationDataset):
       phase = str2datasetphase_type(phase)
     if phase not in [DatasetPhase.Train, DatasetPhase.TrainVal]:
       self.CLIP_BOUND = self.TEST_CLIP_BOUND
-    data_root = config.stanford3d_path
+    data_root = config.data.stanford3d_path
     if isinstance(self.DATA_PATH_FILE[phase], (list, tuple)):
       data_paths = []
       for split in self.DATA_PATH_FILE[phase]:
-        data_paths += read_txt(os.path.join('splits/stanford', split))
+        data_paths += read_txt(os.path.join(data_root, 'splits', split))
     else:
-      data_paths = read_txt(os.path.join('splits/stanford', self.DATA_PATH_FILE[phase]))
+      data_paths = read_txt(os.path.join(data_root, 'splits', self.DATA_PATH_FILE[phase]))
 
 
-    if config.voxel_size:
-      self.VOXEL_SIZE = config.voxel_size
+    if config.data.voxel_size:
+      self.VOXEL_SIZE = config.data.voxel_size
     logging.info('voxel size: {}'.format(self.VOXEL_SIZE))
     logging.info('Loading {} {}: {}'.format(self.__class__.__name__, phase,
                                             self.DATA_PATH_FILE[phase]))
@@ -140,8 +140,8 @@ class StanfordDataset(StanfordVoxelizationDatasetBase, VoxelizationDataset):
         prevoxel_transform=prevoxel_transform,
         input_transform=input_transform,
         target_transform=target_transform,
-        ignore_label=config.ignore_label,
-        return_transformation=config.return_transformation,
+        ignore_label=config.data.ignore_label,
+        return_transformation=config.data.return_transformation,
         augment_data=augment_data,
         elastic_distortion=elastic_distortion,
         config=config)

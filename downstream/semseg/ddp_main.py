@@ -1,6 +1,6 @@
 # Change dataloader multiprocess start method to anything not fork
 import open3d as o3d
-
+import numpy as np
 import torch.multiprocessing as mp
 try:
   mp.set_start_method('forkserver')  # Reuse process created
@@ -12,6 +12,9 @@ import sys
 import json
 import random
 import logging
+import hydra
+from omegaconf import OmegaConf
+
 from easydict import EasyDict as edict
 
 # Torch packages
@@ -34,7 +37,7 @@ from models import load_model, load_wrapper
 
 def setup_logging(config):
   ch = logging.StreamHandler(sys.stdout)
-  if config.distributed_world_size > 1 and config.distributed_rank > 0:
+  if config.distributed.distributed_world_size > 1 and config.distributed.distributed_rank > 0:
     logging.getLogger().setLevel(logging.WARN)
   else:
     logging.getLogger().setLevel(logging.INFO)
@@ -49,58 +52,56 @@ def main(config, init_distributed=False):
     raise Exception('No GPUs FOUND.')
   
   # setup initial seed
-  torch.cuda.set_device(config.device_id)  
-  torch.manual_seed(config.seed)
-  torch.cuda.manual_seed(config.seed)
+  torch.cuda.set_device(config.distributed.device_id)  
+  torch.manual_seed(config.misc.seed)
+  torch.cuda.manual_seed(config.misc.seed)
 
-  device = config.device_id
-  distributed = config.distributed_world_size > 1
+  device = config.distributed.device_id
+  distributed = config.distributed.distributed_world_size > 1
 
   if init_distributed:
-    config.distributed_rank = distributed_utils.distributed_init(config)
+    config.distributed.distributed_rank = distributed_utils.distributed_init(config.distributed)
 
   setup_logging(config)
 
   logging.info('===> Configurations')
-  dconfig = vars(config)
-  for k in dconfig:
-    logging.info('    {}: {}'.format(k, dconfig[k]))
+  logging.info(config.pretty())
 
-  DatasetClass = load_dataset(config.dataset)
-  if config.test_original_pointcloud:
+  DatasetClass = load_dataset(config.data.dataset)
+  if config.test.test_original_pointcloud:
     if not DatasetClass.IS_FULL_POINTCLOUD_EVAL:
       raise ValueError('This dataset does not support full pointcloud evaluation.')
 
-  if config.evaluate_original_pointcloud:
-    if not config.return_transformation:
+  if config.test.evaluate_original_pointcloud:
+    if not config.data.return_transformation:
       raise ValueError('Pointcloud evaluation requires config.return_transformation=true.')
 
-  if (config.return_transformation ^ config.evaluate_original_pointcloud):
+  if (config.data.return_transformation ^ config.test.evaluate_original_pointcloud):
     raise ValueError('Rotation evaluation requires config.evaluate_original_pointcloud=true and '
                      'config.return_transformation=true.')
 
   logging.info('===> Initializing dataloader')
-  if config.is_train:
+  if config.train.is_train:
     train_data_loader = initialize_data_loader(
         DatasetClass,
         config,
-        phase=config.train_phase,
-        num_workers=config.num_workers,
+        phase=config.train.train_phase,
+        num_workers=config.data.num_workers,
         augment_data=True,
         shuffle=True,
         repeat=True,
-        batch_size=config.batch_size,
-        limit_numpoints=config.train_limit_numpoints)
+        batch_size=config.data.batch_size,
+        limit_numpoints=config.data.train_limit_numpoints)
 
     val_data_loader = initialize_data_loader(
         DatasetClass,
         config,
-        num_workers=config.num_val_workers,
-        phase=config.val_phase,
+        num_workers=config.data.num_val_workers,
+        phase=config.train.val_phase,
         augment_data=False,
         shuffle=True,
         repeat=False,
-        batch_size=config.val_batch_size,
+        batch_size=config.data.val_batch_size,
         limit_numpoints=False)
 
     if train_data_loader.dataset.NUM_IN_CHANNEL is not None:
@@ -115,12 +116,12 @@ def main(config, init_distributed=False):
     test_data_loader = initialize_data_loader(
         DatasetClass,
         config,
-        num_workers=config.num_workers,
-        phase=config.test_phase,
+        num_workers=config.data.num_workers,
+        phase=config.data.test_phase,
         augment_data=False,
         shuffle=False,
         repeat=False,
-        batch_size=config.test_batch_size,
+        batch_size=config.data.test_batch_size,
         limit_numpoints=False)
     
     if test_data_loader.dataset.NUM_IN_CHANNEL is not None:
@@ -131,28 +132,28 @@ def main(config, init_distributed=False):
     num_labels = test_data_loader.dataset.NUM_LABELS
 
   logging.info('===> Building model')
-  NetClass = load_model(config.model)
-  if config.wrapper_type == 'None':
+  NetClass = load_model(config.net.model)
+  if config.net.wrapper_type == None:
     model = NetClass(num_in_channel, num_labels, config)
     logging.info('===> Number of trainable parameters: {}: {}'.format(NetClass.__name__,
                                                                       count_parameters(model)))
   else:
-    wrapper = load_wrapper(config.wrapper_type)
+    wrapper = load_wrapper(config.net.wrapper_type)
     model = wrapper(NetClass, num_in_channel, num_labels, config)
     logging.info('===> Number of trainable parameters: {}: {}'.format(
         wrapper.__name__ + NetClass.__name__, count_parameters(model)))
 
   logging.info(model)
   
-  if config.weights == 'modelzoo':  # Load modelzoo weights if possible.
+  if config.net.weights == 'modelzoo':  # Load modelzoo weights if possible.
     logging.info('===> Loading modelzoo weights')
     model.preload_modelzoo()
 
   # Load weights if specified by the parameter.
-  elif config.weights.lower() != 'none':
-    logging.info('===> Loading weights: ' + config.weights)
+  elif config.net.weights.lower() != 'none':
+    logging.info('===> Loading weights: ' + config.net.weights)
     # state = torch.load(config.weights)
-    state = torch.load(config.weights, map_location=lambda s, l: default_restore_location(s, 'cpu'))
+    state = torch.load(config.net.weights, map_location=lambda s, l: default_restore_location(s, 'cpu'))
    
     if 'state_dict' in state.keys():
       state_key_name = 'state_dict'
@@ -161,19 +162,19 @@ def main(config, init_distributed=False):
     else:
       raise NotImplementedError
 
-    if config.weights_for_inner_model:
+    if config.net.weights_for_inner_model:
       model.model.load_state_dict(state['state_dict'])
     else:
-      if config.lenient_weight_loading:
-        if config.load_bn == "all_bn":
+      if config.train.lenient_weight_loading:
+        if config.misc.load_bn == "all_bn":
           matched_weights = load_state_with_same_shape(model, state[state_key_name])
-        elif config.load_bn == "bn_weight_only":
+        elif config.misc.load_bn == "bn_weight_only":
           matched_weights = load_state_with_same_shape_no_bn_stats(model, state['state_dict'])
-        elif config.load_bn == "no_bn0":
+        elif config.misc.load_bn == "no_bn0":
           matched_weights = load_state_with_same_shape_no_bn0(model, state['state_dict'])
-        elif config.load_bn == "no_bn":
+        elif config.misc.load_bn == "no_bn":
           matched_weights = load_state_with_same_shape_no_bn(model, state['state_dict'])
-        elif config.load_bn == "no_conv0":
+        elif config.misc.load_bn == "no_conv0":
           matched_weights = load_state_with_same_shape_no_conv0(model, state['state_dict'])
         else:
           raise NotImplementedError
@@ -187,64 +188,65 @@ def main(config, init_distributed=False):
   if distributed:
     model = torch.nn.parallel.DistributedDataParallel(
       module=model, device_ids=[device], output_device=device,
-      broadcast_buffers=False, bucket_cap_mb=config.bucket_cap_mb
+      broadcast_buffers=False, bucket_cap_mb=config.distributed.bucket_cap_mb
     ) 
 
-  if config.is_train:
+  if config.train.is_train:
     train(model, train_data_loader, val_data_loader, config)
   else:
     test(model, test_data_loader, config)
 
 
-def distributed_main(i, config, start_rank=0):
-  config.device_id = i
-  if config.distributed_rank is None:  # torch.multiprocessing.spawn
-      config.distributed_rank = start_rank + i
-  main(config, init_distributed=True)
 
-
+@hydra.main(config_path='config', config_name='default.yaml')
 def cli_main(config):
-  if config.distributed_init_method is None:
-    distributed_utils.infer_init_method(config)
+  # load the configurations
+  if config.train.resume:
+    resume_config = OmegaConf.load(os.path.join(config.train.resume, 'config.yaml'))
+    resume_config.train.resume = config.train.resume
 
-  if config.distributed_init_method is not None:
+  if config.distributed.distributed_init_method is None:
+    distributed_utils.infer_init_method(config.distributed)
+
+  if config.distributed.distributed_init_method is not None:
     # distributed training
-    if torch.cuda.device_count() > 1 and not config.distributed_no_spawn:
-      start_rank = config.distributed_rank
-      config.distributed_rank = None  # assign automatically
+    if torch.cuda.device_count() > 1 and not config.distributed.distributed_no_spawn:
+      #TODO(Ji) _pickle.PicklingError: Can't pickle <function distributed_main at 0x7f78e2caab00>: attribute lookup distributed_main on __main__ failed
+      start_rank = config.distributed.distributed_rank
+      config.distributed.distributed_rank = None  # assign automatically
       mp.spawn(
           fn=distributed_main,
           args=(config, start_rank),
           nprocs=torch.cuda.device_count(),
       )
     else:
-      distributed_main(config.device_id, config)
+      distributed_main(config.distributed.device_id, config)
 
-  elif config.distributed_world_size > 1:
+  elif config.distributed.distributed_world_size > 1:
     # fallback for single node with multiple GPUs
-    assert config.distributed_world_size <= torch.cuda.device_count()
+    assert config.distributed.distributed_world_size <= torch.cuda.device_count()
     port = random.randint(10000, 20000)
-    config.distributed_init_method = 'tcp://localhost:{port}'.format(port=port)
-    config.distributed_rank = None  # set based on device id
+    config.distributed.distributed_init_method = 'tcp://localhost:{port}'.format(port=port)
+    config.distributed.distributed_rank = None  # set based on device id
 
     torch.multiprocessing.spawn(
         fn=distributed_main,
         args=(config, ),
-        nprocs=config.distributed_world_size,
+        nprocs=config.distributed.distributed_world_size,
     )
   else:
     # single GPU training
     main(config)
 
+def distributed_main(i, config, start_rank=0):
+  config.distributed.device_id = i
+  if config.distributed.distributed_rank is None:  # torch.multiprocessing.spawn
+      config.distributed.distributed_rank = start_rank + i
+  main(config, init_distributed=True)
+
 if __name__ == '__main__':
   __spec__ = None
-  
-  # load the configurations
-  config = get_config()
-  if config.resume:
-    json_config = json.load(open(config.resume + '/config.json', 'r'))
-    json_config['resume'] = config.resume
-    config = edict(json_config)
+  os.environ['MKL_THREADING_LAYER'] = 'GNU'
   
   # start
-  cli_main(config)
+  cli_main()

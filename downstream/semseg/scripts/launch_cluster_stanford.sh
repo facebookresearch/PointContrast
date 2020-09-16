@@ -65,12 +65,12 @@ NUM_GPU=8
 NUM_JOB=1
 WALL_TIME=72
 TASK_PER_NODE=1
-QUEUE=priority
+QUEUE=dev
 CPU_PER_GPU=6
 NICE=0
 NUM_CPU=$((${NUM_GPU} * ${CPU_PER_GPU}))
-LOG_DIR="/checkpoint/s9xie/3d_ssl2_stanford/${EXP_NAME}"
-USER=s9xie
+LOG_DIR="/checkpoint/jihou/3d_ssl2_stanford/${EXP_NAME}"
+USER=jihou
 
 mkdir -p ${LOG_DIR}
 
@@ -98,7 +98,7 @@ sbatch --nodes=1 \
        --constraint=volta \
        --export=ALL,PRETRAIN=${PRETRAIN},LOADFILTER=${LOADFILTER} \
        --comment="ICLR deadline" \
-       /private/home/s9xie/PointContrast_release/downstream/S3DIS/scripts/train_stanford_ddp_ssl.sh
+       /private/home/jihou/PointContrast/downstream/semseg/scripts/train_stanford_ddp_ssl.sh
 #       /private/home/s9xie/jiatao/SpatioTemporalSegmentation/scripts/train_stanford_ddp_ssl.sh 
 
 echo "Finished launching job ..."
