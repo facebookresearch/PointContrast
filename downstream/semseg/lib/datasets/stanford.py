@@ -4,6 +4,7 @@ import sys
 import numpy as np
 from collections import defaultdict
 from scipy import spatial
+import torch
 from plyfile import PlyData
 
 from lib.utils import read_txt, fast_hist, per_class_iu
@@ -12,12 +13,29 @@ import lib.transforms as t
 
 
 class StanfordVoxelizationDatasetBase:
+
+  # added
+  IGNORE_LABELS_INSTANCE = (4, 8, 11)
+  CLASS_LABELS = ('clutter', 'beam', 'board', 'bookcase', 'ceiling', 'chair', 'column', 
+                'door', 'floor', 'sofa', 'table', 'wall', 'window')
+  VALID_CLASS_IDS = (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13)
+
+  CLASS_LABELS_INSTANCE = ('clutter', 'beam', 'board', 'bookcase', 'chair', 'column', 'door', 'sofa', 'table', 'window')
+  VALID_CLASS_IDS_INSTANCE = (0, 1, 2, 3, 5, 6, 7, 9, 11, 13)
+  IGNORE_LABELS_INSTANCE = tuple(set(range(14)) - set(VALID_CLASS_IDS_INSTANCE))
+
+
+
+  #---------
+
   CLIP_SIZE = None
   CLIP_BOUND = None
   LOCFEAT_IDX = 2
   ROTATION_AXIS = 'z'
   NUM_LABELS = 14
-  IGNORE_LABELS = (10,)  # remove stairs, following SegCloud
+  #IGNORE_LABELS = (10,)  # remove stairs, following SegCloud
+  IGNORE_LABELS = tuple(set(range(14)) - set(VALID_CLASS_IDS))
+
 
   # CLASSES = [
   #     'clutter', 'beam', 'board', 'bookcase', 'ceiling', 'chair', 'column', 'door', 'floor', 'sofa',
@@ -155,6 +173,16 @@ class StanfordDataset(StanfordVoxelizationDatasetBase, VoxelizationDataset):
     feats = np.array([data['red'], data['green'], data['blue']], dtype=np.float32).T
     labels = np.array(data['label'], dtype=np.int32)
     return coords, feats, labels, None
+
+  #@cache
+  def load_data(self, index):
+    filepath = self.data_root / self.data_paths[index]
+    pointcloud = torch.load(filepath)
+    coords = pointcloud[:,:3].astype(np.float32)
+    feats = pointcloud[:,3:6].astype(np.float32)
+    labels = pointcloud[:,6].astype(np.int32)
+    instances = pointcloud[:,7].astype(np.int32) 
+    return coords, feats, labels, instances
 
 
 class StanfordArea5Dataset(StanfordDataset):

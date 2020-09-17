@@ -105,7 +105,7 @@ class Voxelizer:
         (coords[:, 2] < (lim[2][1] + center[2])))
     return clip_inds
 
-  def voxelize(self, coords, feats, labels, center=None):
+  def voxelize(self, coords, feats, labels, instances, center=None):
     assert coords.shape[1] == 3 and coords.shape[0] == feats.shape[0] and coords.shape[0]
     if self.clip_bound is not None:
       trans_aug_ratio = np.zeros(3)
@@ -118,6 +118,8 @@ class Voxelizer:
         coords, feats = coords[clip_inds], feats[clip_inds]
         if labels is not None:
           labels = labels[clip_inds]
+        if instances is not None:
+          instances = instances[clip_inds]
 
     # Get rotation and scale
     M_v, M_r = self.get_transformation_matrix()
@@ -137,10 +139,14 @@ class Voxelizer:
     coords_aug = np.floor(coords_aug - min_coords)
 
     # key = self.hash(coords_aug)  # floor happens by astype(np.uint64)
-    coords_aug, feats, labels = ME.utils.sparse_quantize(
-        coords_aug, feats, labels=labels, ignore_label=self.ignore_label)
+    mapping, colabels = ME.utils.sparse_quantize(
+        coords_aug, feats, labels=labels, return_index=True, ignore_label=self.ignore_label)
+    coords_aug = coords_aug[mapping]
+    feats = feats[mapping]
+    labels = colabels
+    instances = instances[mapping]
 
-    return coords_aug, feats, labels, rigid_transformation.flatten()
+    return coords_aug, feats, labels, instances, rigid_transformation.flatten()
 
   def voxelize_temporal(self,
                         coords_t,

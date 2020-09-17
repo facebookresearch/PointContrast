@@ -181,6 +181,9 @@ class VoxelizationDatasetBase(DictDataset, ABC):
     labels = np.array(data['label'], dtype=np.int32)
     return coords, feats, labels, None
 
+  def load_data(self, index):
+    raise NotImplementedError
+
   def __len__(self):
     num_data = len(self.data_paths)
     return num_data
@@ -267,8 +270,34 @@ class VoxelizationDataset(VoxelizationDatasetBase):
     # Generally, xyz,rgb,label
     return mat[:, :3], mat[:, 3:-1], mat[:, -1]
 
+  def get_instance_info(self, xyz, instance_ids):
+    '''
+    :param xyz: (n, 3)
+    :param instance_ids: (n), int, (1~nInst, -1)
+    :return: instance_num, dict
+    '''
+    centers = np.ones((xyz.shape[0], 3), dtype=np.float32) * -1   # (n, 9), float, (cx, cy, cz, minx, miny, minz, maxx, maxy, maxz, occ, num_instances)
+    occupancy = {}   # (nInst), int
+    bbox = {}
+    unique_ids = np.unique(instance_ids)
+    for id_ in unique_ids:
+        if id_ == -1:
+            continue
+
+        mask = (instance_ids == id_)
+        xyz_ = xyz[mask]
+        bbox_min = xyz_.min(0)
+        bbox_max = xyz_.max(0)
+        center = xyz_.mean(0)
+
+        centers[mask] = center
+        occupancy[id_] = mask.sum()
+        bbox[id_] = np.concatenate([bbox_min, bbox_max])
+
+    return {"ids": instance_ids, "center": centers, "occupancy": occupancy, "bbox": bbox}
+
   def __getitem__(self, index):
-    coords, feats, labels, center = self.load_ply(index)
+    coords, feats, labels, instances = self.load_data(index)
     # Downsample the pointcloud with finer voxel size before transformation for memory and speed
     if self.PREVOXELIZATION_VOXEL_SIZE is not None:
       inds = ME.utils.sparse_quantize(
@@ -276,19 +305,29 @@ class VoxelizationDataset(VoxelizationDatasetBase):
       coords = coords[inds]
       feats = feats[inds]
       labels = labels[inds]
+      instances = instances[inds]
 
     # Prevoxel transformations
     if self.prevoxel_transform is not None:
       coords, feats, labels = self.prevoxel_transform(coords, feats, labels)
 
-    coords, feats, labels, transformation = self.voxelizer.voxelize(
-        coords, feats, labels, center=center)
+    coords, feats, labels, instances, transformation = self.voxelizer.voxelize(
+        coords, feats, labels, instances)
+
+    #----------------Instances-------------------------
+    condition = (labels == self.ignore_mask)
+    instances[condition] = -1
+    if self.IGNORE_LABELS_INSTANCE is not None:
+        for ignore_id in self.IGNORE_LABELS_INSTANCE:
+            condition = (labels == ignore_id)
+            instances[condition] = -1
+    instance_info = self.get_instance_info(coords, instances)
 
     # map labels not used for evaluation to ignore_label
     if self.input_transform is not None:
-      coords, feats, labels = self.input_transform(coords, feats, labels)
+      coords, feats, labels, instances = self.input_transform(coords, feats, labels, instances)
     if self.target_transform is not None:
-      coords, feats, labels = self.target_transform(coords, feats, labels)
+      coords, feats, labels, instances = self.target_transform(coords, feats, labels, instances)
     if self.IGNORE_LABELS is not None:
       labels = np.array([self.label_map[x] for x in labels], dtype=np.int)
 
@@ -296,7 +335,8 @@ class VoxelizationDataset(VoxelizationDatasetBase):
     if self.AUGMENT_COORDS_TO_FEATS:
       coords, feats, labels = self._augment_coords_to_feats(coords, feats, labels)
 
-    return_args = [coords, feats, labels]
+
+    return_args = [coords, feats, labels, instance_info]
     if self.return_transformation:
       return_args.append(transformation.astype(np.float32))
 

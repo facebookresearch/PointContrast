@@ -132,27 +132,8 @@ misc:
   # New configs for experimental sweeps
   load_bn: all_bn
 
-# hydra submitit launcher
-
 defaults:
 - hydra/launcher: submitit_slurm
 - hydra/hydra_logging: colorlog
+- distributed: slurm
 
-hydra:
-  run:
-    dir: ${misc.log_dir}
-  sweep:
-    dir: ${misc.log_dir}
-  launcher:
-    partition: dev
-    submitit_folder: ${hydra.sweep.dir}/.submitit/%j
-    name: ${hydra.job.name}
-    timeout_min: 2880
-    cpus_per_task: 10
-    gpus_per_node: 8
-    tasks_per_node: 8
-    mem_gb: 480
-    nodes: 1
-    constraint: volta32gb
-    max_num_timeout: 3
-    signal_delay_s: 300

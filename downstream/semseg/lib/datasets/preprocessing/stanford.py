@@ -1,16 +1,17 @@
 import glob
 import numpy as np
 import os
+import torch
 
 from tqdm import tqdm
 
 from lib.utils import mkdir_p
-from lib.pc_utils import save_point_cloud
+from lib.pc_utils import save_point_cloud, read_plyfile
 
 import MinkowskiEngine as ME
 
-STANFORD_3D_IN_PATH = '/private/home/jgu/data/3d_ssl2/Stanford3dDataset_v1.2/'
-STANFORD_3D_OUT_PATH = '/private/home/jgu/data/3d_ssl2/Stanford3D'
+STANFORD_3D_IN_PATH = '/checkpoint/jihou/data/stanford3d/Stanford3dDataset_v1.2/'
+STANFORD_3D_OUT_PATH = '/checkpoint/jihou/data/stanford3d/pointcloud_pth'
 
 STANFORD_3D_TO_SEGCLOUD_LABEL = {
     4: 0,
@@ -60,7 +61,7 @@ class Stanford3DDatasetConverter:
     return xyz, rgb
 
   @classmethod
-  def convert_to_ply(cls, root_path, out_path):
+  def convert_to_ply(cls, root_path, out_path, save_pth=False):
     """Convert Stanford3DDataset to PLY format that is compatible with
     Synthia dataset. Assumes file structure as given by the dataset.
     Outputs the processed PLY files to `STANFORD_3D_OUT_PATH`.
@@ -71,6 +72,9 @@ class Stanford3DDatasetConverter:
       file_sp = os.path.normpath(txtfile).split(os.path.sep)
       target_path = os.path.join(out_path, file_sp[-3])
       out_file = os.path.join(target_path, file_sp[-2] + '.ply')
+      if save_pth:
+        out_file = os.path.join(target_path, file_sp[-2] + '.pth')
+
 
       if os.path.exists(out_file):
         print(out_file, ' exists')
@@ -78,7 +82,7 @@ class Stanford3DDatasetConverter:
 
       annotation, _ = os.path.split(txtfile)
       subclouds = glob.glob(os.path.join(annotation, 'Annotations/*.txt'))
-      coords, feats, labels = [], [], []
+      coords, feats, labels, instances = [], [], [], []
       for inst, subcloud in enumerate(subclouds):
         # Read ply file and parse its rgb values.
         xyz, rgb = cls.read_txt(subcloud)
@@ -88,6 +92,8 @@ class Stanford3DDatasetConverter:
         coords.append(xyz)
         feats.append(rgb)
         labels.append(np.ones((len(xyz), 1), dtype=np.int32) * clsidx)
+        instances.append(np.ones((len(xyz), 1), dtype=np.int32) * inst)
+
 
       if len(coords) == 0:
         print(txtfile, ' has 0 files.')
@@ -96,6 +102,8 @@ class Stanford3DDatasetConverter:
         coords = np.concatenate(coords, 0)
         feats = np.concatenate(feats, 0)
         labels = np.concatenate(labels, 0)
+        instances = np.concatenate(instances, 0)
+
         inds, collabels = ME.utils.sparse_quantize(
             coords,
             feats,
@@ -105,19 +113,24 @@ class Stanford3DDatasetConverter:
             quantization_size=0.01  # 1cm
         )
         pointcloud = np.concatenate((coords[inds], feats[inds], collabels[:, None]), axis=1)
+        if save_pth:
+          pointcloud = np.concatenate((coords[inds], feats[inds], collabels[:, None], instances[inds]), axis=1)
 
         # Write ply file.
         mkdir_p(target_path)
+        if save_pth:
+          torch.save(pointcloud, out_file)
+          continue
         save_point_cloud(pointcloud, out_file, with_label=True, verbose=False)
 
 
-def generate_splits(stanford_out_path):
+def generate_splits(stanford_out_path, suffix='ply'):
   """Takes preprocessed out path and generate txt files"""
   split_path = './splits/stanford'
   mkdir_p(split_path)
   for i in range(1, 7):
     curr_path = os.path.join(stanford_out_path, f'Area_{i}')
-    files = glob.glob(os.path.join(curr_path, '*.ply'))
+    files = glob.glob(os.path.join(curr_path, '*.{}'.format(suffix)))
     files = [os.path.relpath(full_path, stanford_out_path) for full_path in files]
     out_txt = os.path.join(split_path, f'area{i}.txt')
     with open(out_txt, 'w') as f:
@@ -125,5 +138,5 @@ def generate_splits(stanford_out_path):
 
 
 if __name__ == '__main__':
-  Stanford3DDatasetConverter.convert_to_ply(STANFORD_3D_IN_PATH, STANFORD_3D_OUT_PATH)
-  generate_splits(STANFORD_3D_OUT_PATH)
+  #Stanford3DDatasetConverter.convert_to_ply(STANFORD_3D_IN_PATH, STANFORD_3D_OUT_PATH, save_pth=True)
+  generate_splits(STANFORD_3D_OUT_PATH, 'pth')

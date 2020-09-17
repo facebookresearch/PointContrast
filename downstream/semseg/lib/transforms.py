@@ -24,11 +24,11 @@ class ChromaticTranslation(object):
     """
     self.trans_range_ratio = trans_range_ratio
 
-  def __call__(self, coords, feats, labels):
+  def __call__(self, coords, feats, labels, instances):
     if random.random() < 0.95:
       tr = (np.random.rand(1, 3) - 0.5) * 255 * 2 * self.trans_range_ratio
       feats[:, :3] = np.clip(tr + feats[:, :3], 0, 255)
-    return coords, feats, labels
+    return coords, feats, labels, instances
 
 
 class ChromaticAutoContrast(object):
@@ -37,7 +37,7 @@ class ChromaticAutoContrast(object):
     self.randomize_blend_factor = randomize_blend_factor
     self.blend_factor = blend_factor
 
-  def __call__(self, coords, feats, labels):
+  def __call__(self, coords, feats, labels, instances):
     if random.random() < 0.2:
       # mean = np.mean(feats, 0, keepdims=True)
       # std = np.std(feats, 0, keepdims=True)
@@ -53,7 +53,7 @@ class ChromaticAutoContrast(object):
 
       blend_factor = random.random() if self.randomize_blend_factor else self.blend_factor
       feats[:, :3] = (1 - blend_factor) * feats + blend_factor * contrast_feats
-    return coords, feats, labels
+    return coords, feats, labels, instances
 
 
 class ChromaticJitter(object):
@@ -61,12 +61,12 @@ class ChromaticJitter(object):
   def __init__(self, std=0.01):
     self.std = std
 
-  def __call__(self, coords, feats, labels):
+  def __call__(self, coords, feats, labels, instances):
     if random.random() < 0.95:
       noise = np.random.randn(feats.shape[0], 3)
       noise *= self.std * 255
       feats[:, :3] = np.clip(noise + feats[:, :3], 0, 255)
-    return coords, feats, labels
+    return coords, feats, labels, instances
 
 
 class HueSaturationTranslation(object):
@@ -121,7 +121,7 @@ class HueSaturationTranslation(object):
     self.hue_max = hue_max
     self.saturation_max = saturation_max
 
-  def __call__(self, coords, feats, labels):
+  def __call__(self, coords, feats, labels, instances):
     # Assume feat[:, :3] is rgb
     hsv = HueSaturationTranslation.rgb_to_hsv(feats[:, :3])
     hue_val = (random.random() - 0.5) * 2 * self.hue_max
@@ -130,7 +130,7 @@ class HueSaturationTranslation(object):
     hsv[..., 1] = np.clip(sat_ratio * hsv[..., 1], 0, 1)
     feats[:, :3] = np.clip(HueSaturationTranslation.hsv_to_rgb(hsv), 0, 255)
 
-    return coords, feats, labels
+    return coords, feats, labels, instances
 
 
 ##############################
@@ -145,12 +145,12 @@ class RandomDropout(object):
     self.dropout_ratio = dropout_ratio
     self.dropout_application_ratio = dropout_application_ratio
 
-  def __call__(self, coords, feats, labels):
+  def __call__(self, coords, feats, labels, instances):
     if random.random() < self.dropout_ratio:
       N = len(coords)
       inds = np.random.choice(N, int(N * (1 - self.dropout_ratio)), replace=False)
-      return coords[inds], feats[inds], labels[inds]
-    return coords, feats, labels
+      return coords[inds], feats[inds], labels[inds], instances[inds]
+    return coords, feats, labels, instances
 
 
 class RandomHorizontalFlip(object):
@@ -165,13 +165,13 @@ class RandomHorizontalFlip(object):
     # Use the rest of axes for flipping.
     self.horz_axes = set(range(self.D)) - set([self.upright_axis])
 
-  def __call__(self, coords, feats, labels):
+  def __call__(self, coords, feats, labels, instances):
     if random.random() < 0.95:
       for curr_ax in self.horz_axes:
         if random.random() < 0.5:
           coord_max = np.max(coords[:, curr_ax])
           coords[:, curr_ax] = coord_max - coords[:, curr_ax]
-    return coords, feats, labels
+    return coords, feats, labels, instances
 
 
 class ElasticDistortion:
@@ -244,8 +244,8 @@ class cfl_collate_fn_factory:
     self.limit_numpoints = limit_numpoints
 
   def __call__(self, list_data):
-    coords, feats, labels = list(zip(*list_data))
-    coords_batch, feats_batch, labels_batch = [], [], []
+    coords, feats, labels, instances = list(zip(*list_data))
+    coords_batch, feats_batch, labels_batch, instances_batch = [], [], [], []
 
     batch_id = 0
     batch_num_points = 0
@@ -268,6 +268,7 @@ class cfl_collate_fn_factory:
               coords[batch_id]).int()), 1))
       feats_batch.append(torch.from_numpy(feats[batch_id]))
       labels_batch.append(torch.from_numpy(labels[batch_id]).int())
+      instances_batch.append(instances[batch_id])
 
       batch_id += 1
 
@@ -275,7 +276,7 @@ class cfl_collate_fn_factory:
     coords_batch = torch.cat(coords_batch, 0).int()
     feats_batch = torch.cat(feats_batch, 0).float()
     labels_batch = torch.cat(labels_batch, 0).int()
-    return coords_batch, feats_batch, labels_batch
+    return coords_batch, feats_batch, labels_batch, instances_batch
 
 
 class cflt_collate_fn_factory:

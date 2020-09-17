@@ -93,7 +93,7 @@ def test(model, data_loader, config, transform_data_fn=None, has_gt=True):
       if config.data.return_transformation:
         coords, input, target, transformation = data_iter.next()
       else:
-        coords, input, target = data_iter.next()
+        coords, input, target, instances = data_iter.next()
         transformation = None
       data_time = data_timer.toc(False)
 
