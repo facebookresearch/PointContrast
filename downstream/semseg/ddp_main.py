@@ -72,14 +72,6 @@ def main(config, init_distributed=False):
     if not DatasetClass.IS_FULL_POINTCLOUD_EVAL:
       raise ValueError('This dataset does not support full pointcloud evaluation.')
 
-  if config.test.evaluate_original_pointcloud:
-    if not config.data.return_transformation:
-      raise ValueError('Pointcloud evaluation requires config.return_transformation=true.')
-
-  if (config.data.return_transformation ^ config.test.evaluate_original_pointcloud):
-    raise ValueError('Rotation evaluation requires config.evaluate_original_pointcloud=true and '
-                     'config.return_transformation=true.')
-
   logging.info('===> Initializing dataloader')
   if config.train.is_train:
     train_data_loader = initialize_data_loader(
@@ -117,7 +109,7 @@ def main(config, init_distributed=False):
         DatasetClass,
         config,
         num_workers=config.data.num_workers,
-        phase=config.data.test_phase,
+        phase=config.test.test_phase,
         augment_data=False,
         shuffle=False,
         repeat=False,
@@ -201,9 +193,9 @@ def main(config, init_distributed=False):
 @hydra.main(config_path='config', config_name='default.yaml')
 def cli_main(config):
   # load the configurations
-  if config.train.resume:
-    resume_config = OmegaConf.load(os.path.join(config.train.resume, 'config.yaml'))
-    resume_config.train.resume = config.train.resume
+  if config.misc.resume_config:
+    resume_config = OmegaConf.load(os.path.join(config.misc.resume_config, 'config.yaml'))
+    resume_config.misc.resume_config = config.resume_config
 
   if config.distributed.distributed_init_method is None:
     distributed_utils.infer_init_method(config.distributed)

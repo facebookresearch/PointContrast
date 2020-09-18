@@ -299,47 +299,29 @@ def save_rotation_pred(iteration, pred, dataset, save_pred_dir):
 def save_predictions(coords, upsampled_pred, transformation, dataset, config, iteration,
                      save_pred_dir):
   """Save prediction results in original pointcloud scale."""
-  from lib.dataset import OnlineVoxelizationDatasetBase
-  if dataset.IS_ONLINE_VOXELIZATION:
-    assert transformation is not None, 'Need transformation matrix.'
-  iter_size = coords[:, -1].max() + 1  # Normally batch_size, may be smaller at the end.
-  if dataset.IS_TEMPORAL:  # Iterate over temporal dilation.
-    iter_size *= config.temporal_numseq
+  iter_size = coords[:, 0].max() + 1  # Normally batch_size, may be smaller at the end.
   for i in range(iter_size):
     # Get current pointcloud filtering mask.
-    if dataset.IS_TEMPORAL:
-      j = i % config.temporal_numseq
-      i = i // config.temporal_numseq
-    batch_mask = coords[:, -1].numpy() == i
-    if dataset.IS_TEMPORAL:
-      batch_mask = np.logical_and(batch_mask, coords[:, -2].numpy() == j)
+    batch_mask = coords[:, 0].numpy() == i
     # Calculate original coordinates.
-    coords_original = coords[:, :3].numpy()[batch_mask] + 0.5
-    if dataset.IS_ONLINE_VOXELIZATION:
-      # Undo voxelizer transformation.
-      curr_transformation = transformation[i, :16].numpy().reshape(4, 4)
-      xyz = np.hstack((coords_original, np.ones((batch_mask.sum(), 1))))
-      orig_coords = (np.linalg.inv(curr_transformation) @ xyz.T).T
-    else:
-      orig_coords = coords_original
+    coords_original = coords[:, 1:].numpy()[batch_mask] + 0.5
+
+    # Undo voxelizer transformation.
+    curr_transformation = transformation[i, :16].numpy().reshape(4, 4)
+    xyz = np.hstack((coords_original, np.ones((batch_mask.sum(), 1))))
+    orig_coords = (np.linalg.inv(curr_transformation) @ xyz.T).T
+    #orig_coords = coords_original
+
     orig_pred = upsampled_pred[batch_mask]
     # Undo ignore label masking to fit original dataset label.
     if dataset.IGNORE_LABELS:
-      if isinstance(dataset, OnlineVoxelizationDatasetBase):
-        label2masked = dataset.label2masked
-        maskedmax = label2masked[label2masked < 255].max() + 1
-        masked2label = [label2masked.tolist().index(i) for i in range(maskedmax)]
-        orig_pred = np.take(masked2label, orig_pred)
-      else:
-        decode_label_map = {}
-        for k, v in dataset.label_map.items():
-          decode_label_map[v] = k
-        orig_pred = np.array([decode_label_map[x] for x in orig_pred], dtype=np.int)
+      decode_label_map = {}
+      for k, v in dataset.label_map.items():
+        decode_label_map[v] = k
+      orig_pred = np.array([decode_label_map[x.item()] for x in orig_pred.cpu()], dtype=np.int)
     # Determine full path of the destination.
     full_pred = np.hstack((orig_coords[:, :3], np.expand_dims(orig_pred, 1)))
     filename = 'pred_%04d_%02d.npy' % (iteration, i)
-    if dataset.IS_TEMPORAL:
-      filename = 'pred_%04d_%02d_%02d.npy' % (iteration, i, j)
     # Save final prediction as npy format.
     np.save(os.path.join(save_pred_dir, filename), full_pred)
 

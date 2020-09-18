@@ -106,6 +106,7 @@ class Voxelizer:
     return clip_inds
 
   def voxelize(self, coords, feats, labels, instances, center=None):
+
     assert coords.shape[1] == 3 and coords.shape[0] == feats.shape[0] and coords.shape[0]
     if self.clip_bound is not None:
       trans_aug_ratio = np.zeros(3)

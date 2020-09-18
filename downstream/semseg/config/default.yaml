@@ -80,7 +80,7 @@ train:
   train_phase: train
   val_phase: val
   overwrite_weights: True
-  resume: 
+  resume: True
   resume_optimizer: True,
   eval_upsample: False
   lenient_weight_loading: False,
@@ -131,6 +131,8 @@ misc:
   log_dir: outputs/default
   # New configs for experimental sweeps
   load_bn: all_bn
+  resume_config:
+  instance: False
 
 defaults:
 - hydra/launcher: submitit_slurm

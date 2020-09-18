@@ -15,7 +15,7 @@ hydra:
   sweep:
     dir: ${misc.log_dir}
   launcher:
-    partition: dev
+    partition: learnfair
     submitit_folder: ${hydra.sweep.dir}/.submitit/%j
     name: ${hydra.job.name}
     timeout_min: 2000

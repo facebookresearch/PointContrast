@@ -291,22 +291,18 @@ class cflt_collate_fn_factory:
     self.limit_numpoints = limit_numpoints
 
   def __call__(self, list_data):
-    coords, feats, labels, transformations = list(zip(*list_data))
+    coords, feats, labels, instances, transformations = list(zip(*list_data))
     cfl_collate_fn = cfl_collate_fn_factory(limit_numpoints=self.limit_numpoints)
-    coords_batch, feats_batch, labels_batch = cfl_collate_fn(list(zip(coords, feats, labels)))
+    coords_batch, feats_batch, labels_batch, instances_batch = cfl_collate_fn(list(zip(coords, feats, labels, instances)))
     num_truncated_batch = coords_batch[:, -1].max().item() + 1
 
     batch_id = 0
-    pointclouds_batch, transformations_batch = [], []
+    transformations_batch = []
     for transformation in transformations:
       if batch_id >= num_truncated_batch:
         break
-      transformations_batch.append(
-          torch.cat(
-              (torch.from_numpy(transformation), torch.ones(transformation.shape[0], 1) * batch_id),
-              1))
+      transformations_batch.append(torch.from_numpy(transformation).float())
       batch_id += 1
+    transformations_batch = torch.stack(transformations_batch, 0)
 
-    pointclouds_batch = torch.cat(pointclouds_batch, 0).float()
-    transformations_batch = torch.cat(transformations_batch, 0).float()
-    return coords_batch, feats_batch, labels_batch, transformations_batch
+    return coords_batch, feats_batch, labels_batch, instances_batch, transformations_batch

@@ -1,10 +1,10 @@
 #!/bin/bash
 
-DATAPATH=${3:-"/checkpoint/jihou/data/stanford3d/pointcloud_pth"}
-PRETRAIN="/checkpoint/s9xie/ji_exps/scannet_nce_20200909/6/weights/checkpoint_20000.pth"
+DATAPATH=${3:-"/checkpoint/jihou/data/scannet/pointcloud/"}
+PRETRAIN="/private/home/jihou/Mink16UNet34C_ScanNet.pth"
 MODEL=Res16UNet34C
 BATCH_SIZE=${BATCH_SIZE:-6}
-LOG_DIR="/checkpoint/jihou/add_instance_to_train"
+LOG_DIR="/checkpoint/jihou/scannet_baseline"
 
 python ddp_main.py -m \
     train.train_phase=train \
@@ -13,19 +13,20 @@ python ddp_main.py -m \
     train.stat_freq=1 \
     train.val_freq=200 \
     train.save_freq=100 \
+    test.test_original_pointcloud=False \
+    test.save_prediction=False \
     net.model=${MODEL} \
     net.conv1_kernel_size=3 \
-    net.weights=${PRETRAIN} \
-    data.dataset=StanfordArea5Dataset \
+    #net.weights=${PRETRAIN} \
+    data.dataset=ScannetVoxelization2cmDataset \
     data.batch_size=$BATCH_SIZE \
     data.voxel_size=0.05 \
     data.num_workers=1 \
-    data.stanford3d_path=${DATAPATH} \
-    augmentation.data_aug_color_trans_ratio=0.05 \
-    augmentation.data_aug_color_jitter_std=0.005 \
+    data.scannet_path=${DATAPATH} \
+    data.return_transformation=False \
     optimizer.lr=0.1 \
     optimizer.scheduler=PolyLR \
-    optimizer.max_iter=60000 \
+    optimizer.max_iter=20000 \
     misc.log_dir=${LOG_DIR} \
     distributed=slurm \
 

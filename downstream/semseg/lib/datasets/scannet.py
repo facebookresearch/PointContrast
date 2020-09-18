@@ -3,6 +3,7 @@ import os
 import sys
 from pathlib import Path
 
+import torch
 import numpy as np
 from scipy import spatial
 
@@ -10,10 +11,6 @@ from lib.dataset import VoxelizationDataset, DatasetPhase, str2datasetphase_type
 from lib.pc_utils import read_plyfile, save_point_cloud
 from lib.utils import read_txt, fast_hist, per_class_iu
 
-CLASS_LABELS = ('wall', 'floor', 'cabinet', 'bed', 'chair', 'sofa', 'table', 'door', 'window',
-                'bookshelf', 'picture', 'counter', 'desk', 'curtain', 'refrigerator',
-                'shower curtain', 'toilet', 'sink', 'bathtub', 'otherfurniture')
-VALID_CLASS_IDS = (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 24, 28, 33, 34, 36, 39)
 SCANNET_COLOR_MAP = {
     0: (0., 0., 0.),
     1: (174., 199., 232.),
@@ -92,7 +89,7 @@ class ScannetVoxelizationDataset(VoxelizationDataset):
       DatasetPhase.Train: 'scannetv2_train.txt',
       DatasetPhase.Val: 'scannetv2_val.txt',
       DatasetPhase.TrainVal: 'scannetv2_trainval.txt',
-      DatasetPhase.Test: 'scannetv2_test.txt'
+      DatasetPhase.Test: 'scannetv2_val.txt'
   }
 
   def __init__(self,
@@ -110,7 +107,8 @@ class ScannetVoxelizationDataset(VoxelizationDataset):
     data_root = config.data.scannet_path
     if phase not in [DatasetPhase.Train, DatasetPhase.TrainVal]:
       self.CLIP_BOUND = self.TEST_CLIP_BOUND
-    data_paths = read_txt(os.path.join('./splits/scannet', self.DATA_PATH_FILE[phase]))
+    data_paths = read_txt(os.path.join(data_root, 'splits', self.DATA_PATH_FILE[phase]))
+    data_paths = [data_path + '.pth' for data_path in data_paths]
     logging.info('Loading {}: {}'.format(self.__class__.__name__, self.DATA_PATH_FILE[phase]))
     super().__init__(
         data_paths,
@@ -134,6 +132,15 @@ class ScannetVoxelizationDataset(VoxelizationDataset):
          pointcloud[:, 6:]))
     return pointcloud
 
+  def load_data(self, index):
+    filepath = self.data_root / self.data_paths[index]
+    pointcloud = torch.load(filepath)
+    coords = pointcloud[0].astype(np.float32)
+    feats = pointcloud[1].astype(np.float32)
+    labels = pointcloud[2].astype(np.int32)
+    instances = pointcloud[3].astype(np.int32) 
+    return coords, feats, labels, instances
+
   def test_pointcloud(self, pred_dir):
     print('Running full pointcloud evaluation.')
     eval_path = os.path.join(pred_dir, 'fulleval')
@@ -147,26 +154,40 @@ class ScannetVoxelizationDataset(VoxelizationDataset):
       pred = np.load(os.path.join(pred_dir, 'pred_%04d_%02d.npy' % (i, 0)))
 
       # save voxelized pointcloud predictions
-      save_point_cloud(
-          np.hstack((pred[:, :3], np.array([SCANNET_COLOR_MAP[i] for i in pred[:, -1]]))),
-          f'{eval_path}/{room_id}_voxel.ply',
-          verbose=False)
+      #save_point_cloud(
+      #    np.hstack((pred[:, :3], np.array([SCANNET_COLOR_MAP[i] for i in pred[:, -1]]))),
+      #    f'{eval_path}/{room_id}_voxel.ply',
+      #    verbose=False)
 
       fullply_f = self.data_root / data_path
-      query_pointcloud = read_plyfile(fullply_f)
-      query_xyz = query_pointcloud[:, :3]
-      query_label = query_pointcloud[:, -1]
+
+      #query_pointcloud = read_plyfile(fullply_f)
+      #query_xyz = query_pointcloud[:, :3]
+      #query_label = query_pointcloud[:, -2]
+      query_xyz, _, query_label, _  = torch.load(fullply_f)
+
       # Run test for each room.
-      pred_tree = spatial.KDTree(pred[:, :3], leafsize=500)
-      _, result = pred_tree.query(query_xyz)
+      from pykeops.numpy import LazyTensor
+      from pykeops.numpy.utils import IsGpuAvailable
+      
+      query_xyz = np.array(query_xyz)
+      x_i = LazyTensor( query_xyz[:,None,:] )  # x_i.shape = (1e6, 1, 3)
+      y_j = LazyTensor( pred[:,:3][None,:,:] )  # y_j.shape = ( 1, 2e6,3)
+      D_ij = ((x_i - y_j) ** 2).sum(-1)  # (M**2, N) symbolic matrix of squared distances
+      indKNN = D_ij.argKmin(1, dim=1)  # Grid <-> Samples, (M**2, K) integer tensor
+      result = indKNN[:,0]
+
+      #pred_tree = spatial.KDTree(pred[:, :3], leafsize=500)
+      #_, result = pred_tree.query(query_xyz)
       ptc_pred = pred[result, 3].astype(int)
+
       # Save prediciton in txt format for submission.
       np.savetxt(f'{eval_path}/{room_id}.txt', ptc_pred, fmt='%i')
       # Save prediciton in colored pointcloud for visualization.
-      save_point_cloud(
-          np.hstack((query_xyz, np.array([SCANNET_COLOR_MAP[i] for i in ptc_pred]))),
-          f'{eval_path}/{room_id}.ply',
-          verbose=False)
+      #save_point_cloud(
+      #    np.hstack((query_xyz, np.array([SCANNET_COLOR_MAP[i] for i in ptc_pred]))),
+      #    f'{eval_path}/{room_id}.ply',
+      #    verbose=False)
       # Evaluate IoU.
       if self.IGNORE_LABELS is not None:
         ptc_pred = np.array([self.label_map[x] for x in ptc_pred], dtype=np.int)
@@ -174,7 +195,7 @@ class ScannetVoxelizationDataset(VoxelizationDataset):
       hist += fast_hist(ptc_pred, query_label, self.NUM_LABELS)
     ious = per_class_iu(hist) * 100
     print('mIoU: ' + str(np.nanmean(ious)) + '\n'
-          'Class names: ' + ', '.join(CLASS_LABELS) + '\n'
+          'Class names: ' + ', '.join(self.CLASS_LABELS) + '\n'
           'IoU: ' + ', '.join(np.round(ious, 2).astype(str)))
 
 

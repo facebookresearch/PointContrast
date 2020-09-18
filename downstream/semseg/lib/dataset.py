@@ -469,7 +469,7 @@ def initialize_data_loader(DatasetClass,
   if isinstance(phase, str):
     phase = str2datasetphase_type(phase)
 
-  if config.data.return_transformation:
+  if config.data.return_transformation and phase == DatasetPhase.Train:
     collate_fn = t.cflt_collate_fn_factory(limit_numpoints)
   else:
     collate_fn = t.cfl_collate_fn_factory(limit_numpoints)

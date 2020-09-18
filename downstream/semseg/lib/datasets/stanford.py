@@ -174,7 +174,7 @@ class StanfordDataset(StanfordVoxelizationDatasetBase, VoxelizationDataset):
     labels = np.array(data['label'], dtype=np.int32)
     return coords, feats, labels, None
 
-  #@cache
+  @cache
   def load_data(self, index):
     filepath = self.data_root / self.data_paths[index]
     pointcloud = torch.load(filepath)
