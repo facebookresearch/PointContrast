@@ -89,7 +89,7 @@ class ScannetVoxelizationDataset(VoxelizationDataset):
       DatasetPhase.Train: 'scannetv2_train.txt',
       DatasetPhase.Val: 'scannetv2_val.txt',
       DatasetPhase.TrainVal: 'scannetv2_trainval.txt',
-      DatasetPhase.Test: 'scannetv2_val.txt'
+      DatasetPhase.Test: 'scannetv2_test.txt'
   }
 
   def __init__(self,

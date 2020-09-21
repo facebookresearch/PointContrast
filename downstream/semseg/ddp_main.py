@@ -22,7 +22,6 @@ import torch
 from torch.serialization import default_restore_location
 
 # Train deps
-from config import get_config
 
 from lib.test import test
 from lib.train import train
@@ -142,7 +141,7 @@ def main(config, init_distributed=False):
     model.preload_modelzoo()
 
   # Load weights if specified by the parameter.
-  elif config.net.weights.lower() != 'none':
+  elif config.net.weights != None:
     logging.info('===> Loading weights: ' + config.net.weights)
     # state = torch.load(config.weights)
     state = torch.load(config.net.weights, map_location=lambda s, l: default_restore_location(s, 'cpu'))

@@ -307,7 +307,6 @@ class HardestContrastiveLossTrainer(ContrastiveLossTrainer):
 
     return batch_loss, batch_pos_loss, batch_neg_loss
 
-
 class PointNCELossTrainer(ContrastiveLossTrainer):
 
   def __init__(

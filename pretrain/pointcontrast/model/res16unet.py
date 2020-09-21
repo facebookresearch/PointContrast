@@ -201,6 +201,7 @@ class Res16UNetBase(ResNetBase):
     self.final = conv(self.PLANES[7], out_channels, kernel_size=1, stride=1, bias=True, D=D)
     self.relu = MinkowskiReLU(inplace=True)
 
+
   def forward(self, x):
     out = self.conv0p1s1(x)
     out = self.bn0(out)
@@ -258,6 +259,7 @@ class Res16UNetBase(ResNetBase):
 
     out = me.cat(out, out_p1)
     out = self.block8(out)
+
 
     out =  self.final(out)
         

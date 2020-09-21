@@ -15,7 +15,7 @@ hydra:
   sweep:
     dir: ${misc.log_dir}
   launcher:
-    partition: learnfair
+    partition: dev
     submitit_folder: ${hydra.sweep.dir}/.submitit/%j
     name: ${hydra.job.name}
     timeout_min: 2000
@@ -25,4 +25,5 @@ hydra:
     mem_gb: 480
     nodes: 1
     constraint: volta32gb
+    comment: ICLR Deadline
     max_num_timeout: 3

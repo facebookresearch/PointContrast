@@ -111,9 +111,6 @@ def train(model, data_loader, val_data_loader, config, transform_data_fn=None):
         data_timer.tic()
         coords, input, target, instances = data_iter.next()
 
-        # For some networks, making the network invariant to even, odd coords is important
-        coords[:, 1:] += (torch.rand(3) * 100).type_as(coords)
-
         # Preprocess input
         color = input[:, :3].int()
         if config.augmentation.normalize_color:

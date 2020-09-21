@@ -24,6 +24,3 @@ python ddp_train.py -m \
     hydra.launcher.max_num_timeout=3 \
     hydra.launcher.signal_delay_s=300 \
     #trainer.trainer=HardestContrastiveLossTrainer \
-    #misc.train_num_thread=0 \
-    #misc.weight=/checkpoint/jihou/checkpoints/saining_hardest/checkpoint.pth \
-    #misc.config=/checkpoint/jihou/2020-09-08/outputs_hardest/outputs_hardest/config.yaml \

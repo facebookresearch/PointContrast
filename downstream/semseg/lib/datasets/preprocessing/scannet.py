@@ -3,8 +3,8 @@ from pathlib import Path
 import numpy as np
 from lib.pc_utils import read_plyfile, save_point_cloud
 from concurrent.futures import ProcessPoolExecutor
-SCANNET_RAW_PATH = Path('/path/ScanNet_data/')
-SCANNET_OUT_PATH = Path('/path/scans_processed/')
+SCANNET_RAW_PATH = Path('/datasets01/scannet/082518/')
+SCANNET_OUT_PATH = Path('/checkpoint/jihou/data/scannet/scans_processed/')
 TRAIN_DEST = 'train'
 TEST_DEST = 'test'
 SUBSETS = {TRAIN_DEST: 'scans', TEST_DEST: 'scans_test'}

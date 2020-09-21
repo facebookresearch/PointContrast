@@ -314,6 +314,17 @@ class VoxelizationDataset(VoxelizationDatasetBase):
     coords, feats, labels, instances, transformation = self.voxelizer.voxelize(
         coords, feats, labels, instances)
 
+
+    # map labels not used for evaluation to ignore_label
+    if self.input_transform is not None:
+      coords, feats, labels, instances = self.input_transform(coords, feats, labels, instances)
+    if self.target_transform is not None:
+      coords, feats, labels, instances = self.target_transform(coords, feats, labels, instances)
+     
+    if self.augment_data:
+      # For some networks, making the network invariant to even, odd coords is important
+      coords += (torch.rand(3) * 100).int().numpy()
+
     #----------------Instances-------------------------
     condition = (labels == self.ignore_mask)
     instances[condition] = -1
@@ -323,18 +334,13 @@ class VoxelizationDataset(VoxelizationDatasetBase):
             instances[condition] = -1
     instance_info = self.get_instance_info(coords, instances)
 
-    # map labels not used for evaluation to ignore_label
-    if self.input_transform is not None:
-      coords, feats, labels, instances = self.input_transform(coords, feats, labels, instances)
-    if self.target_transform is not None:
-      coords, feats, labels, instances = self.target_transform(coords, feats, labels, instances)
+    # ------------- label mapping --------------------
     if self.IGNORE_LABELS is not None:
       labels = np.array([self.label_map[x] for x in labels], dtype=np.int)
 
     # Use coordinate features if config is set
     if self.AUGMENT_COORDS_TO_FEATS:
       coords, feats, labels = self._augment_coords_to_feats(coords, feats, labels)
-
 
     return_args = [coords, feats, labels, instance_info]
     if self.return_transformation:
@@ -469,7 +475,7 @@ def initialize_data_loader(DatasetClass,
   if isinstance(phase, str):
     phase = str2datasetphase_type(phase)
 
-  if config.data.return_transformation and phase == DatasetPhase.Train:
+  if config.data.return_transformation and phase != DatasetPhase.Train:
     collate_fn = t.cflt_collate_fn_factory(limit_numpoints)
   else:
     collate_fn = t.cfl_collate_fn_factory(limit_numpoints)
