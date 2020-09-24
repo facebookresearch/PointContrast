@@ -53,6 +53,11 @@ def default_collate_pair_fn(list_data):
     feats_batch1.append(torch.from_numpy(feats1[batch_id]))
 
     trans_batch.append(torch.from_numpy(trans[batch_id]))
+    
+    # in case 0 matching
+    if len(matching_inds[batch_id]) == 0:
+      matching_inds[batch_id].extend([0, 0]
+    
     matching_inds_batch.append(
         torch.from_numpy(np.array(matching_inds[batch_id]) + curr_start_inds))
     len_batch.append([N0, N1])
