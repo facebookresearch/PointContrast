@@ -1,4 +1,3 @@
-import model.resunet as resunet
 import model.res16unet as res16unet
 
 MODELS = []
@@ -7,8 +6,6 @@ MODELS = []
 def add_models(module):
   MODELS.extend([getattr(module, a) for a in dir(module) if 'Net' in a])
 
-
-add_models(resunet)
 add_models(res16unet)
 
 def get_models():

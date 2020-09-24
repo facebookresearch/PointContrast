@@ -1,10 +1,20 @@
 import torch.nn as nn
 
 import MinkowskiEngine as ME
+from MinkowskiEngine import MinkowskiNetwork
 
-from model.model import Model
 from model.modules.common import ConvType, NormType, get_norm, conv, sum_pool
 from model.modules.resnet_block import BasicBlock, Bottleneck
+
+
+class Model(MinkowskiNetwork):
+  OUT_PIXEL_DIST = -1
+
+  def __init__(self, in_channels, out_channels, config, D, **kwargs):
+    super(Model, self).__init__(D)
+    self.in_channels = in_channels
+    self.out_channels = out_channels
+    self.config = config
 
 
 class ResNetBase(Model):
@@ -137,80 +147,3 @@ class ResNetBase(Model):
 
     x = self.final(x)
     return x
-
-
-class ResNet14(ResNetBase):
-  BLOCK = BasicBlock
-  LAYERS = (1, 1, 1, 1)
-
-
-class ResNet18(ResNetBase):
-  BLOCK = BasicBlock
-  LAYERS = (2, 2, 2, 2)
-
-
-class ResNet34(ResNetBase):
-  BLOCK = BasicBlock
-  LAYERS = (3, 4, 6, 3)
-
-
-class ResNet50(ResNetBase):
-  BLOCK = Bottleneck
-  LAYERS = (3, 4, 6, 3)
-
-
-class ResNet101(ResNetBase):
-  BLOCK = Bottleneck
-  LAYERS = (3, 4, 23, 3)
-
-
-class STResNetBase(ResNetBase):
-
-  CONV_TYPE = ConvType.SPATIAL_HYPERCUBE_TEMPORAL_HYPERCROSS
-
-  def __init__(self, in_channels, out_channels, config, D=4, **kwargs):
-    super(STResNetBase, self).__init__(in_channels, out_channels, config, D, **kwargs)
-
-
-class STResNet14(STResNetBase, ResNet14):
-  pass
-
-
-class STResNet18(STResNetBase, ResNet18):
-  pass
-
-
-class STResNet34(STResNetBase, ResNet34):
-  pass
-
-
-class STResNet50(STResNetBase, ResNet50):
-  pass
-
-
-class STResNet101(STResNetBase, ResNet101):
-  pass
-
-
-class STResTesseractNetBase(STResNetBase):
-  CONV_TYPE = ConvType.HYPERCUBE
-
-
-class STResTesseractNet14(STResTesseractNetBase, STResNet14):
-  pass
-
-
-class STResTesseractNet18(STResTesseractNetBase, STResNet18):
-  pass
-
-
-class STResTesseractNet34(STResTesseractNetBase, STResNet34):
-  pass
-
-
-class STResTesseractNet50(STResTesseractNetBase, STResNet50):
-  pass
-
-
-class STResTesseractNet101(STResTesseractNetBase, STResNet101):
-  pass

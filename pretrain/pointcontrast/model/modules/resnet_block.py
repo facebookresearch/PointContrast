@@ -54,22 +54,8 @@ class BasicBlockBase(nn.Module):
 
     return out
 
-
 class BasicBlock(BasicBlockBase):
   NORM_TYPE = NormType.BATCH_NORM
-
-
-class BasicBlockLN(BasicBlockBase):
-  NORM_TYPE = NormType.SPARSE_LAYER_NORM
-
-
-class BasicBlockSN(BasicBlockBase):
-  NORM_TYPE = NormType.SPARSE_SWITCH_NORM
-
-
-class BasicBlockIN(BasicBlockBase):
-  NORM_TYPE = NormType.SPARSE_INSTANCE_NORM
-
 
 class BottleneckBase(nn.Module):
   expansion = 4
@@ -123,15 +109,3 @@ class BottleneckBase(nn.Module):
 
 class Bottleneck(BottleneckBase):
   NORM_TYPE = NormType.BATCH_NORM
-
-
-class BottleneckSN(BottleneckBase):
-  NORM_TYPE = NormType.SPARSE_SWITCH_NORM
-
-
-class BottleneckIN(BottleneckBase):
-  NORM_TYPE = NormType.SPARSE_INSTANCE_NORM
-
-
-class BottleneckLN(BottleneckBase):
-  NORM_TYPE = NormType.SPARSE_LAYER_NORM

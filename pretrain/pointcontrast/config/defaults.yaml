@@ -32,7 +32,7 @@ trainer:
 
 # Network specific configurations
 net:
-  model: ResUNetBN2C
+  model: Res16UNet34C
   model_n_out: 32 #Feature dimension
   conv1_kernel_size: 3
   normalize_feature: True
