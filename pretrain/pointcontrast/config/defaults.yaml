@@ -49,7 +49,6 @@ opt:
   adam_beta1: 0.9
   adam_beta2: 0.999
   weight_decay: 1e-4
-  iter_size: 1 # accumulate gradient
   bn_momentum: 0.05
   exp_gamma: 0.99
   scheduler: ExpLR
@@ -72,23 +71,13 @@ misc:
   # TODO(s9xie): all args for scannet training
   num_workers: 2
   train_limit_numpoints: 0
-  data_aug_color_trans_ratio: 0.10 # Color translation range
-  data_aug_color_jitter_std: 0.05 # STD of color jitter
-  normalize_color: True
   data_aug_scale_min: 0.9
   data_aug_scale_max: 1.1
-  data_aug_hue_max: 0.5 # Hue translation range. [0, 1]
-  data_aug_saturation_max: 0.20 #Saturation translation range, [0, 1]
 
   cache_data: False
 
   ignore_label: 255
   return_transformation: False
-  free_rot: True
-  use_color_feat: True
-  use_random_crop: False
-  crop_factor: 1.5
-  crop_min_num_points: 5000
 
 # Dataset specific configurations
 data:

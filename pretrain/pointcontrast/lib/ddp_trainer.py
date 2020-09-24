@@ -13,14 +13,10 @@ import torch.nn.functional as F
 from tensorboardX import SummaryWriter
 from torch.utils.data.distributed import DistributedSampler
 from torch.utils.data.sampler import RandomSampler
-from lib.dataloader import InfSampler, DistributedInfSampler
+from lib.data_sampler import InfSampler, DistributedInfSampler
 
 from model import load_model
-import util.transform_estimation as te
 from lib.timer import Timer, AverageMeter
-
-from util.file import ensure_dir
-from util.misc import _hash
 
 import MinkowskiEngine as ME
 
@@ -33,6 +29,22 @@ from lib.criterion import NCESoftmaxLoss
 from torch.serialization import default_restore_location
 
 torch.autograd.set_detect_anomaly(True)
+
+
+def _hash(arr, M):
+  if isinstance(arr, np.ndarray):
+    N, D = arr.shape
+  else:
+    N, D = len(arr[0]), len(arr)
+
+  hash_vec = np.zeros(N, dtype=np.int64)
+  for d in range(D):
+    if isinstance(arr, np.ndarray):
+      hash_vec += arr[:, d] * M**d
+    else:
+      hash_vec += arr[d] * M**d
+  return hash_vec
+
 
 def load_state(model, weights, lenient_weight_loading=False):
   if du.get_world_size() > 1:
@@ -127,7 +139,8 @@ class ContrastiveLossTrainer:
 
     if self.is_master:
         self.writer = SummaryWriter(logdir='logs')
-        ensure_dir('weights')
+        if not os.path.exists('weights'):
+          os.makedirs('weights', mode=0o755)
         OmegaConf.save(config, 'config.yaml')
 
   def _save_checkpoint(self, curr_iter, filename='checkpoint'):

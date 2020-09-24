@@ -5,11 +5,6 @@ import torch.distributed as dist
 import math
 
 class InfSampler(Sampler):
-  """Samples elements randomly, without replacement.
-    Arguments:
-        data_source (Dataset): dataset to sample from
-    """
-
   def __init__(self, data_source, shuffle=False):
     self.data_source = data_source
     self.shuffle = shuffle
