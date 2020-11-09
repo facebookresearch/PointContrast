@@ -1,0 +1,10 @@
+numpy
+scipy
+matplotlib
+open3d
+tensorboardX
+future-fstrings
+easydict
+joblib
+scikit-learn
+tqdm

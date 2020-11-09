@@ -1,0 +1,142 @@
+net:
+  model: ResUNet14
+  conv1_kernel_size: 3
+  weights: 
+  weights_for_inner_model: False
+  dilations: [1,1,1,1]
+
+  # Wrappers
+  wrapper_type: 
+  wrapper_region_type: 1
+  wrapper_kernel_size: 3
+  wrapper_lr: 0.1
+
+optimizer:
+  optimizer: SGD
+  lr: 0.01
+  sgd_momentum: 0.9
+  sgd_dampening: 0.1
+  adam_beta1: 0.9
+  adam_beta2: 0.999
+  weight_decay: 0.0001
+  param_histogram_freq: 100
+  save_param_histogram: False
+  iter_size: 1
+  bn_momentum: 0.02
+
+  # Scheduler
+  scheduler: StepLR
+  max_iter: 60000
+  step_size: 2e4
+  step_gamma: 0.1
+  poly_power: 0.9
+  exp_gamma: 0.95
+  exp_step_size: 445
+
+data:
+  dataset: ScannetVoxelization2cmDataset
+  voxel_size: 0.05
+  data_dir: data
+  point_lim: -1
+  pre_point_lim: -1
+  batch_size: 16
+  val_batch_size: 1
+  test_batch_size: 1
+  cache_data: False
+  num_workers: 1
+  num_val_workers: 1
+  ignore_label: 255
+  return_transformation: False
+  ignore_duplicate_class: False
+  partial_crop: 0
+  train_limit_numpoints: 0
+
+  # Point Cloud Dataset
+  scannet_path: /home/datasets/scannet/scannet_preprocessed
+  stanford3d_path: /home/datasets/Stanford3D
+
+train:
+  # Training / test parameters
+  is_train: True
+  stat_freq: 40
+  save_freq: 1000
+  val_freq: 1000
+  empty_cache_freq: 1
+  train_phase: train
+  val_phase: val
+  overwrite_weights: True
+  resume: 
+  resume_optimizer: True,
+  eval_upsample: False
+  lenient_weight_loading: False,
+
+# Distributed Training configurations
+distributed:
+  distributed_world_size: 8
+  distributed_rank: 0
+  distributed_backend: nccl
+  distributed_init_method: 
+  distributed_port: 10010
+  device_id: 0
+  distributed_no_spawn: True
+  ddp_backend: c10d #['c10d', 'no_c10d']
+  bucket_cap_mb: 25
+
+# Data augmentation
+augmentation:
+  use_feat_aug: True
+  data_aug_color_trans_ratio: 0.10
+  data_aug_color_jitter_std: 0.05
+  normalize_color: True
+  data_aug_scale_min: 0.9
+  data_aug_scale_max: 1.1
+  data_aug_hue_max: 0.5
+  data_aug_saturation_max: 0.2
+
+# Test
+test:
+  visualize: False
+  test_temporal_average: False
+  visualize_path: outputs/visualize
+  save_prediction: False
+  save_pred_dir: outputs/pred
+  test_phase: test
+  evaluate_original_pointcloud: False
+  test_original_pointcloud: False
+  test_stat_freq: 100
+
+# Misc
+misc:
+  is_cuda: True
+  load_path:
+  log_step: 50
+  log_level: INFO #['INFO', 'DEBUG', 'WARN']
+  num_gpu: 1
+  seed: 123
+  log_dir: outputs/default
+
+# hydra submitit launcher
+
+defaults:
+- hydra/launcher: submitit_slurm
+- hydra/hydra_logging: colorlog
+- distributed: slurm
+
+  # hydra:
+  #   run:
+  #     dir: ${misc.log_dir}
+  #   sweep:
+  #     dir: ${misc.log_dir}
+  #   launcher:
+  #     partition: dev
+  #     submitit_folder: ${hydra.sweep.dir}/.submitit/%j
+  #     name: ${hydra.job.name}
+  #     timeout_min: 2880
+  #     cpus_per_task: 10
+  #     gpus_per_node: 8
+  #     tasks_per_node: 8
+  #     mem_gb: 480
+  #     nodes: 1
+  #     constraint: volta32gb
+  #     max_num_timeout: 3
+  #     signal_delay_s: 300

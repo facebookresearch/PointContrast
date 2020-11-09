@@ -1,0 +1,67 @@
+defaults:
+- hydra/launcher: submitit_slurm
+- hydra/hydra_logging: colorlog
+
+net:
+  model: votenet
+  is_train: True
+  backbone: pointnet2 # sparseconv
+  weights:
+  num_target: 256
+  vote_factor: 1
+  cluster_sampling: vote_fps
+
+data:
+  dataset: sunrgbd
+  data_ratio: 1.0
+  num_points: 20000
+  num_workers: 4
+  batch_size: 8
+  no_height: False
+  use_color: False
+  use_sunrgbd_v2: False
+  overwrite: False
+  dump_results: False
+  voxelization: False
+  voxel_size: 0.05
+  shuffle_datast: False
+
+optimizer:
+  max_epoch: 180
+  learning_rate: 0.001
+  lr_decay_steps: [80, 120, 160]
+  lr_decay_rates: [0.1, 0.1, 0.1]
+  weight_decay: 0
+  bn_decay_step: 20
+  bn_decay_rate: 0.5
+
+test:
+  use_3d_nms: False
+  use_cls_nms: False
+  use_old_type_nms: False
+  per_class_proposal: False
+  nms_iou: 0.25
+  conf_thresh: 0.05
+  faster_eval: False, #Faster evaluation by skippling empty bounding box removal.
+  ap_iou_thresholds: [0.25, 0.5]
+
+misc:
+  log_dir: log
+
+hydra:
+  run:
+    dir: ${misc.log_dir}
+  sweep:
+    dir: ${misc.log_dir}
+  launcher:
+    partition: dev 
+    submitit_folder: ${hydra.sweep.dir}/.submitit/%j
+    name: ${hydra.job.name}
+    timeout_min: 2000
+    cpus_per_task: 20
+    gpus_per_node: 1
+    tasks_per_node: 1
+    mem_gb: 256
+    nodes: 1
+    constraint: volta32gb
+    max_num_timeout: 3

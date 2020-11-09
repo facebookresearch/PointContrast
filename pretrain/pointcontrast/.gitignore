@@ -1,0 +1,20 @@
+# Temp files
+__pycache__
+*.swp
+*.swo
+*.orig
+.idea
+.nfs*
+outputs/
+outputs_dir/
+*.pyc
+data/
+debug/
+launch_scripts
+*.npy
+*.ipynb
+*.pcd
+.*/
+.vscode/settings.json
+example_dataset/data_f25*
+example_dataset/overlap-30-full.txt

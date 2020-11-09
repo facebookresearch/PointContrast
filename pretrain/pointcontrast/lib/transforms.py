@@ -1,0 +1,30 @@
+# Copyright (c) Facebook, Inc. and its affiliates.
+# 
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+
+import numpy as np
+import random
+
+class Compose:
+
+  def __init__(self, transforms):
+    self.transforms = transforms
+
+  def __call__(self, coords, feats):
+    for transform in self.transforms:
+      coords, feats = transform(coords, feats)
+    return coords, feats
+
+
+class Jitter:
+
+  def __init__(self, mu=0, sigma=0.01):
+    self.mu = mu
+    self.sigma = sigma
+
+  def __call__(self, coords, feats):
+    if random.random() < 0.95:
+      feats += np.random.normal(self.mu, self.sigma, (feats.shape[0], feats.shape[1]))
+    return coords, feats
