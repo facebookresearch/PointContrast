@@ -20,6 +20,8 @@ class InfSampler(Sampler):
     perm = len(self.data_source)
     if self.shuffle:
       perm = torch.randperm(perm)
+    else:
+      perm = torch.arange(perm)
     self._perm = perm.tolist()
 
   def __iter__(self):
