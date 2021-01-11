@@ -68,8 +68,8 @@ For example, for Stanford 3D semantic segmentation task:
     ./scripts/train_stanford3d.sh 
     ```
 ## Pretrained PointContrast Model:
-Pretrained with Hardest Contrastive Loss [290M] [Download Link](https://www.dropbox.com/s/la9ih2w2oavpp2z/hardest_contrastive.pth?dl=0)
-Pretrained with PointInfoNCE Loss [290M] [Download Link](https://www.dropbox.com/s/uzr88m1lab0abbl/nce.pth?dl=0)
+- Pretrained with Hardest Contrastive Loss [[290M]](https://www.dropbox.com/s/la9ih2w2oavpp2z/hardest_contrastive.pth?dl=0)
+- Pretrained with PointInfoNCE Loss [[290M]](https://www.dropbox.com/s/uzr88m1lab0abbl/nce.pth?dl=0)
 
 
 ## Citing PointContrast
