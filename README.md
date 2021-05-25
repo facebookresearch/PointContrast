@@ -1,3 +1,9 @@
+### [New Codebase Update] 
+This repo is *not* actively maintained. 
+
+Please checkout our new codebase **ContrastiveSceneContexts** that upgrades PointContrast with better representation learning capability and works better on data efficient benchmarks. 
+https://github.com/facebookresearch/ContrastiveSceneContexts
+
 # PointContrast: Unsupervised Pre-training for 3D Point Cloud Understanding
 
 Arguably one of the top success stories of deep learning is transfer learning. The finding that pre-training a network on a rich source set (e.g., ImageNet) can help boost performance once fine-tuned on a usually much smaller target set, has been instrumental to many applications in language and vision. Yet, very little is known about its usefulness in 3D point cloud understanding. We see this as an opportunity considering the effort required for annotating data in 3D. In this work, we aim at facilitating research on 3D representation learning. Different from previous works, we focus on high-level scene understanding tasks. To this end, we select a suite of diverse datasets and tasks to measure the effect of unsupervised pre-training on a large source set of 3D scenes. Our findings are extremely encouraging: using a unified triplet of architecture, source dataset, and contrastive loss for pre-training, we achieve improvement over recent best results in segmentation and detection across 6 different benchmarks for indoor and outdoor, real and synthetic datasets – demonstrating that the learned representation can generalize across domains. Furthermore, the improvement was similar to supervised pre-training, suggesting that future efforts should favor scaling data collection over more detailed nnotation. We hope these findings will encourage more research on unsupervised pretext task design for 3D deep learning.
